@@ -8,23 +8,24 @@
 
 | Module | What it does |
 |---|---|
-| **Dashboard** | System telemetry, disk and memory pressure, process-risk indicators, scan findings and a heuristic posture score |
+| **Dashboard** | System telemetry, disk and memory pressure, process-risk indicators, startup/service-risk summary, scan findings and a heuristic posture score |
 | **File Scanner** | Bounded scans for old temporary/cache candidates, large files and duplicate content (SHA-256); partial coverage is reported, and only old junk candidates can be selected for cleanup and sent to the system Trash |
 | **Processes** | Process inventory, short CPU sampling, memory usage and transparent name/path/resource heuristics; optional process stop with a native confirmation |
 | **Applications** | Installed-software inventory and heuristic flags; only applications with a supported, validated OS uninstall method can be uninstalled |
-| **Network** | TCP/UDP endpoints and owning-process data where the OS permits, non-loopback listeners, and firewall-service/policy status |
-| **Security Audit** | Seven local posture checks and a privacy-limited JSON summary export |
+| **Network** | TCP/UDP endpoints and owning-process data where the OS permits; cross-correlates non-loopback listeners with process-risk heuristics and shows attribution gaps; includes firewall-service/policy status |
+| **Startup & Services** | Read-only startup/service inventory from Windows services, startup commands and logon tasks; macOS launchd; Linux systemd and XDG autostart, with process-risk and listener correlation where attributable |
+| **Security Audit** | Nine local posture checks, including listener and startup/service correlation, and a privacy-limited JSON summary export |
 | **Updates** | Status from the operating-system update service and an OS-native install action where available |
 
 ## Important limitations
 
-AEGIS Sentinel is **not an antivirus, malware scanner, vulnerability scanner, firewall replacement or security guarantee**. Process labels and the 0–100 posture score are simple heuristics; investigate any signal independently. “No findings” does not mean a device is secure.
+AEGIS Sentinel is **not an antivirus, malware scanner, vulnerability scanner, firewall replacement or security guarantee**. Process labels, listener correlation, startup-command heuristics and the 0–100 posture score are simple heuristics; investigate any signal independently. Listener ownership can be unavailable or change between OS queries; an executable-path match is only a candidate, not proof that a running instance came from that startup entry. The startup inventory covers selected OS-managed sources, not every persistence mechanism. “No findings” does not mean a device is secure.
 
 The app queries local operating-system tools. A command may be unavailable, return partial information or require permissions; unknown status is reported as unknown rather than treated as a clean result. File scans are streamed and bounded by time, depth and file-count limits, and report skipped paths or partial coverage. Update installation and firewall changes can require administrator approval and may be unsupported on a given machine.
 
 File cleanup is deliberately conservative: the app accepts only candidates from a recent junk scan, revalidates them before acting, rejects symbolic links or changed files, and moves selected files to the system Trash after a native confirmation. Large-file and duplicate scans are informational and have no delete action. Review candidates before moving them.
 
-The security report contains a small summary, not raw logs, usernames, hostnames, executable paths, process names or remote addresses. The application shell currently loads its interface fonts from Google Fonts when available; the scanner itself does not upload scan results or connect to a service operated by AEGIS.
+The security report contains aggregate counts and check statuses, not raw logs, usernames, hostnames, executable paths, process/service/startup names, command lines or remote addresses. The application shell currently loads its interface fonts from Google Fonts when available; the scanner itself does not upload scan results or connect to a service operated by AEGIS.
 
 ## Run and test
 
@@ -70,12 +71,18 @@ aegis-sentinel/
 ├── src/
 │   ├── index.html       # app shell
 │   ├── styles.css       # Angular SOC design system
-│   └── renderer.js      # seven V1 modules
+│   └── renderer.js      # eight V1 views
 ├── test/smoke.js        # jsdom UI and scanner regression checks
 ├── demo.template.html   # mock browser preview template
 ├── demo.html            # generated, self-contained demo
 └── assets/icon.png      # app icon
 ```
+
+## Security and maintenance
+
+GitHub Actions runs syntax checks, scanner/renderer regression tests, the standalone collector and demo freshness checks on Linux, Windows and macOS. A separate job audits the locked npm dependency tree; Dependabot checks npm and workflow actions weekly. These checks do not replace clean-machine GUI/package validation.
+
+See [`SECURITY.md`](SECURITY.md) for private vulnerability reporting, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for trust boundaries and data flow, and [`docs/SECURITY_ROADMAP.md`](docs/SECURITY_ROADMAP.md) for prioritized release-hardening work. Signing, notarization, SBOM/provenance and signed auto-updates are not yet configured.
 
 ## Legal
 

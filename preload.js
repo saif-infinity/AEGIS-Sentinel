@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('aegis', Object.freeze({
   listApps: invoke('apps:list'),
   uninstallApp: invoke('apps:uninstall'),
   getNetwork: invoke('net:list'),
+  listPersistence: invoke('persist:list'),
   getFirewall: invoke('fw:status'),
   enableFirewall: invoke('fw:enable'),
   getEncryption: invoke('enc:status'),

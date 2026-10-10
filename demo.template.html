@@ -39,8 +39,9 @@
         <button class="nav-item" data-route="processes"><span class="nav-idx">03</span> __ICON_CHIP__ <span>Processes</span></button>
         <button class="nav-item" data-route="apps"><span class="nav-idx">04</span> __ICON_LAYERS__ <span>Applications</span></button>
         <button class="nav-item" data-route="network"><span class="nav-idx">05</span> __ICON_GLOBE__ <span>Network</span></button>
-        <button class="nav-item" data-route="audit"><span class="nav-idx">06</span> __ICON_SHIELD__ <span>Security Audit</span></button>
-        <button class="nav-item" data-route="updates"><span class="nav-idx">07</span> __ICON_REFRESH__ <span>Updates</span></button>
+        <button class="nav-item" data-route="persistence"><span class="nav-idx">06</span> __ICON_POWER__ <span>Startup &amp; Services</span></button>
+        <button class="nav-item" data-route="audit"><span class="nav-idx">07</span> __ICON_SHIELD__ <span>Security Audit</span></button>
+        <button class="nav-item" data-route="updates"><span class="nav-idx">08</span> __ICON_REFRESH__ <span>Updates</span></button>
       </nav>
     </aside>
 
@@ -118,9 +119,35 @@
       { proto: 'UDP', local: '0.0.0.0:5353', remote: '*', state: 'UNCONN', pid: 742, process: 'gnome-shell' },
       { proto: 'UDP', local: '0.0.0.0:68', remote: '*', state: 'UNCONN', pid: 640, process: 'systemd-network' },
       { proto: 'TCP', local: '192.168.1.14:60012', remote: '45.155.205.233:9001', state: 'ESTABLISHED', pid: 7441, process: 'xmrig' },
+      { proto: 'TCP', local: '0.0.0.0:9001', remote: '0.0.0.0:*', state: 'LISTEN', pid: 7441, process: 'xmrig' },
     ];
     const listening = conns.filter((c) => /LISTEN|BOUND|UNCONN/i.test(c.state));
     const exposed = listening.filter((c) => !/^127\.|^::1|^\[::1\]/i.test(c.local));
+    const processByPid = new Map(procs.map((process) => [process.pid, process]));
+    const correlatedItems = exposed.flatMap((endpoint) => {
+      const owner = processByPid.get(endpoint.pid);
+      return owner && (owner.suspicion >= 35 || ['high', 'critical'].includes(owner.suspicionLevel))
+        ? [{ proto: endpoint.proto, local: endpoint.local, pid: endpoint.pid, process: owner.name, suspicion: owner.suspicion, flags: owner.flags.slice(0, 5) }]
+        : [];
+    });
+    const networkCorrelation = {
+      available: true, reason: null, assessed: exposed.length, flagged: correlatedItems.length,
+      unattributed: exposed.filter((endpoint) => !processByPid.has(endpoint.pid)).length, items: correlatedItems,
+    };
+    const persistence = {
+      available: true, complete: true, partial: false, truncated: false, count: 3,
+      sources: [
+        { id: 'demo-systemd', label: 'systemd services (system)', available: true, complete: true, count: 2, error: null },
+        { id: 'demo-xdg', label: 'XDG autostart (user)', available: true, complete: true, count: 1, error: null },
+      ],
+      items: [
+        { kind: 'service', source: 'systemd (system)', scope: 'system', name: 'xmrig.service', command: '/tmp/.cache/xmrig --service', executable: '/tmp/.cache/xmrig', sourcePath: '/etc/systemd/system/xmrig.service', enabled: true, state: 'active/running', startMode: 'enabled', pid: 7441, matchedPid: 7441, processName: 'xmrig', processMatched: true, processMatchType: 'pid', processRiskScore: 98, riskScore: 98, riskLevel: 'critical', riskSignal: true, riskOrigin: 'startup-and-running-process', riskFlags: procs.find((p) => p.pid === 7441).flags, listenerCount: 1, listenerCandidateCount: 0 },
+        { kind: 'service', source: 'systemd (system)', scope: 'system', name: 'docker.service', command: '/usr/bin/dockerd -H fd://', executable: '/usr/bin/dockerd', sourcePath: '/usr/lib/systemd/system/docker.service', enabled: true, state: 'active/running', startMode: 'enabled', pid: 6102, matchedPid: 6102, processName: 'dockerd', processMatched: true, processMatchType: 'pid', processRiskScore: 0, riskScore: 0, riskLevel: 'clean', riskSignal: false, riskOrigin: null, riskFlags: [], listenerCount: 1, listenerCandidateCount: 0 },
+        { kind: 'startup', source: 'XDG autostart', scope: 'user', name: 'Firefox session', command: '/usr/lib/firefox/firefox %U', executable: '/usr/lib/firefox/firefox', sourcePath: '/home/alex/.config/autostart/firefox.desktop', enabled: true, state: 'Configured', pid: null, matchedPid: 1391, processName: 'firefox', processMatched: true, processMatchType: 'executable-path-candidate', processRiskScore: 0, riskScore: 0, riskLevel: 'clean', riskSignal: false, riskOrigin: null, riskFlags: [], listenerCount: null, listenerCandidateCount: 0 },
+      ],
+      summary: { totalItems: 3, enabledItems: 3, runningItems: 2, riskItems: 1, riskItemsWithListeners: 1, riskItemsWithListenerCandidates: 0, pidMatchedItems: 2, executableMatchedItems: 1, unattributedRunningItems: 0 },
+      processAvailable: true, networkAvailable: true,
+    };
     const firewall = { enabled: true, verified: false, profiles: [{ name: 'ufw', enabled: true }, { name: 'firewalld', enabled: false }, { name: 'nftables ruleset', enabled: true }], details: 'Firewall detected; inbound policy requires manual review' };
     const encryption = { enabled: true, details: 'Encryption detected in the root device chain' };
     const updates = { items: [
@@ -146,14 +173,18 @@
     const scanQuick = {
       system: sys, systemDisk: disks[0], disks, processesAvailable: true, processError: null, processes: procs, suspicious,
       firewall, encryption, updates, errors,
-      networkSummary: { connections: conns.length, listening: listening.length, exposed: exposed.length, available: true },
+      networkSummary: { connections: conns.length, listening: listening.length, exposed: exposed.length, available: true }, networkCorrelation,
+      persistenceAvailable: true, persistencePartial: false, persistenceSummary: persistence.summary,
       junk: { available: true, incomplete: false, skipped: 0, error: null, scanned: 184322, reclaimable: 612 * 1024 * 1024, count: 1843, truncated: false },
       score: { score: 58, grade: 'C', findings: [
         { sev: 'critical', msg: 'Process-risk heuristics flagged 2 process(es); investigate manually', pts: 12 },
         { sev: 'warning', msg: 'Firewall inbound policy could not be verified', pts: 8 },
         { sev: 'warning', msg: '3 pending operating-system update(s)', pts: 9 },
         { sev: 'warning', msg: '4 system error event(s) in the last 24h', pts: 2 },
-        { sev: 'warning', msg: '2 externally bound listening endpoint(s) need review', pts: 4 },
+        { sev: 'warning', msg: '5 externally bound listening endpoint(s) need review', pts: 10 },
+        { sev: 'warning', msg: '1 non-loopback listener is owned by a process with high-risk heuristics; investigate manually', pts: 6 },
+        { sev: 'warning', msg: '1 startup/service item(s) match process-risk heuristics; review the source and command', pts: 4 },
+        { sev: 'warning', msg: '1 risk-marked startup/service item(s) share a PID with a listening endpoint', pts: 5 },
       ], disclaimer: 'Heuristic posture indicator only; not an antivirus or a guarantee of security.' },
       durationMs: 2340,
     };
@@ -178,7 +209,8 @@
       'proc:kill': { ok: true, error: null },
       'apps:list': apps,
       'apps:uninstall': { ok: true, error: null },
-      'net:list': { connections: conns, listening, exposed, available: true, error: null },
+      'net:list': { connections: conns, listening, exposed, available: true, error: null, correlation: networkCorrelation },
+      'persist:list': persistence,
       'fw:status': firewall,
       'fw:enable': { ok: true, error: null },
       'enc:status': encryption,
@@ -199,7 +231,7 @@
       quickScan: () => call('scan:quick'), scanFiles: (p) => call('scan:files', p), cleanFiles: (p) => call('files:clean', p),
       listProcesses: () => call('proc:list'), killProcess: (p) => call('proc:kill', p),
       listApps: () => call('apps:list'), uninstallApp: (p) => call('apps:uninstall', p),
-      getNetwork: () => call('net:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
+      getNetwork: () => call('net:list'), listPersistence: () => call('persist:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
       getEncryption: () => call('enc:status'), checkUpdates: () => call('updates:check'), installUpdates: () => call('updates:install'),
       getSystemErrors: () => call('errors:list'), pickDirectory: () => call('dialog:pickDir'), saveReport: (p) => call('report:save', p),
       minimize: () => call('win:minimize'), toggleMaximize: () => call('win:toggleMax'), close: () => call('win:close'),

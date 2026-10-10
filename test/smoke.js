@@ -31,7 +31,7 @@ function makeBridge(canned, calls) {
     quickScan: () => call('scan:quick'), scanFiles: (payload) => call('scan:files', payload), cleanFiles: (payload) => call('files:clean', payload),
     listProcesses: () => call('proc:list'), killProcess: (payload) => call('proc:kill', payload),
     listApps: () => call('apps:list'), uninstallApp: (payload) => call('apps:uninstall', payload),
-    getNetwork: () => call('net:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
+    getNetwork: () => call('net:list'), listPersistence: () => call('persist:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
     getEncryption: () => call('enc:status'), checkUpdates: () => call('updates:check'), installUpdates: () => call('updates:install'),
     getSystemErrors: () => call('errors:list'), pickDirectory: () => call('dialog:pickDir'), saveReport: (payload) => call('report:save', payload),
     minimize: () => call('win:minimize'), toggleMaximize: () => call('win:toggleMax'), close: () => call('win:close'),
@@ -51,6 +51,49 @@ async function scannerTests() {
   check('netstat fallback parses PID/program', parsed[0] && parsed[0].pid === 812 && parsed[0].process === 'sshd');
   check('netstat fallback handles IPv6 TCP', parsed[1] && parsed[1].proto === 'TCP' && parsed[1].local === ':::443' && parsed[1].pid === 920);
   check('netstat fallback handles UDP with blank state', parsed[2] && parsed[2].state === 'UNCONN' && parsed[2].pid === 742);
+  const riskOwner = { pid: 812, name: 'xmrig', path: '/tmp/xmrig', suspicion: 92, suspicionLevel: 'critical', flags: ['Cryptominer keyword heuristic'] };
+  const moderateOwner = { pid: 813, name: 'unknown-daemon', suspicion: 42, suspicionLevel: 'medium', flags: ['Untrusted path heuristic'] };
+  const correlation = scanner.correlateNetworkExposure({ available: true, items: [riskOwner, moderateOwner] }, {
+    available: true,
+    exposed: [
+      { proto: 'TCP', local: '0.0.0.0:3333', pid: 812, process: 'xmrig' },
+      { proto: 'UDP', local: ':::5353', pid: 813, process: 'unknown-daemon' },
+      { proto: 'TCP', local: '0.0.0.0:22', pid: 814, process: 'sshd' },
+    ],
+  });
+  check('listener correlation applies the numeric risk threshold and counts unattributed owners', correlation.available && correlation.assessed === 3 && correlation.flagged === 2 && correlation.unattributed === 1 && correlation.items.some((item) => item.process === 'xmrig'));
+  const cleanCorrelation = scanner.correlateNetworkExposure({ available: true, items: [{ pid: 900, name: 'sshd', suspicion: 0, suspicionLevel: 'clean' }] }, {
+    available: true, exposed: [{ proto: 'TCP', local: '0.0.0.0:22', pid: 900, process: 'sshd' }],
+  });
+  check('listener correlation distinguishes attributable clean owners from risky owners', cleanCorrelation.available && cleanCorrelation.assessed === 1 && cleanCorrelation.flagged === 0 && cleanCorrelation.unattributed === 0 && cleanCorrelation.items.length === 0);
+  const missingProcessCorrelation = scanner.correlateNetworkExposure({ available: false, items: [] }, { available: true, exposed: [] });
+  const missingNetworkCorrelation = scanner.correlateNetworkExposure({ available: true, items: [] }, { available: false, exposed: [] });
+  check('listener correlation reports process inventory unavailability instead of a clean result', !missingProcessCorrelation.available && /Process inventory is unavailable/.test(missingProcessCorrelation.reason) && missingProcessCorrelation.flagged === null);
+  check('listener correlation reports network inventory unavailability instead of a clean result', !missingNetworkCorrelation.available && /Network endpoint inventory is unavailable/.test(missingNetworkCorrelation.reason) && missingNetworkCorrelation.assessed === null);
+  const unitFiles = scanner.parseSystemdUnitFileList('UNIT FILE                  STATE           PRESET\nssh.service               enabled         enabled\nexample.service           disabled        enabled\n');
+  check('systemd parser distinguishes enabled and disabled service files', unitFiles.length === 2 && unitFiles[0].name === 'ssh.service' && unitFiles[0].state === 'enabled' && unitFiles[1].state === 'disabled');
+  const systemdUnits = scanner.parseSystemctlListUnits('ssh.service loaded active running OpenBSD Secure Shell server\nexample.service loaded inactive dead Example service\n');
+  check('systemd runtime parser retains active state without splitting descriptions', systemdUnits.length === 2 && systemdUnits[0].activeState === 'active' && systemdUnits[0].subState === 'running');
+  const systemdDetails = scanner.parseSystemctlShow('Id=ssh.service\nMainPID=812\nActiveState=active\nId=example.service\nMainPID=0\nActiveState=inactive\n');
+  check('systemd detail parser separates multiple unit records', systemdDetails.length === 2 && systemdDetails[0].name === 'ssh.service' && systemdDetails[0].MainPID === '812' && systemdDetails[1].name === 'example.service');
+  const desktopEntry = scanner.parseXdgDesktopEntry('[Desktop Entry]\nType=Application\nName=Updater\nExec=\"/tmp/maintainer tool\" --background %U\nX-GNOME-Autostart-enabled=false\n');
+  check('XDG autostart parser extracts quoted executables and disabled state', desktopEntry && desktopEntry.name === 'Updater' && desktopEntry.executable === '/tmp/maintainer tool' && desktopEntry.enabled === false);
+  const hiddenDesktop = scanner.parseXdgDesktopEntry('[Desktop Entry]\nType=Application\nName=Disabled app\nExec=/opt/app\nHidden=true\n');
+  check('XDG autostart parser respects Hidden tombstones', hiddenDesktop && hiddenDesktop.enabled === false);
+  const launchJobs = scanner.parseLaunchctlList('PID\tStatus\tLabel\n-\t0\tcom.example.configured\n4242\t0\tcom.example.running\n');
+  check('launchctl parser distinguishes loaded jobs from running PID owners', launchJobs.length === 2 && launchJobs[0].pid === null && launchJobs[1].pid === 4242 && launchJobs[1].label === 'com.example.running');
+  const persistenceAssessment = scanner.correlatePersistenceItems({ available: true, items: [
+    { kind: 'service', source: 'test', scope: 'system', name: 'Suspicious service', command: '/tmp/xmrig --service', executable: '/tmp/xmrig', enabled: true, state: 'Running', pid: 812 },
+    { kind: 'startup', source: 'test', scope: 'user', name: 'Known app', command: '/usr/bin/firefox', executable: '/usr/bin/firefox', enabled: true, state: 'Configured', pid: null },
+    { kind: 'startup', source: 'test', scope: 'user', name: 'Miner autostart definition', command: '/tmp/xmrig --service', executable: '/tmp/xmrig', enabled: true, state: 'Configured', pid: null },
+  ] }, { available: true, items: [riskOwner, { pid: 920, name: 'firefox', path: '/usr/bin/firefox', suspicion: 0, suspicionLevel: 'clean', flags: [] }] }, {
+    available: true, listening: [{ pid: 812, local: '0.0.0.0:3333' }],
+  });
+  check('persistence assessment separates same-PID listeners from executable-path candidates', persistenceAssessment.summary.totalItems === 3 && persistenceAssessment.summary.riskItems === 2 && persistenceAssessment.summary.riskItemsWithListeners === 1 && persistenceAssessment.items[0].processMatchType === 'pid' && persistenceAssessment.items[0].processMatched && persistenceAssessment.items[0].riskSignal && persistenceAssessment.items[0].listenerCount === 1 && persistenceAssessment.summary.riskItemsWithListenerCandidates === 1 && persistenceAssessment.items[1].processMatchType === 'executable-path-candidate' && persistenceAssessment.items[1].listenerCount === null && persistenceAssessment.items[2].processMatchType === 'executable-path-candidate' && persistenceAssessment.items[2].listenerCandidateCount === 1);
+  const riskyPathCandidate = scanner.correlatePersistenceItems({ available: true, items: [{ kind: 'startup', name: 'Trusted launcher', command: '/opt/app', executable: '/opt/app', enabled: true, pid: null }] }, { available: true, items: [{ pid: 913, name: 'xmrig', path: '/opt/app', suspicion: 91, suspicionLevel: 'critical', flags: ['Risk heuristic'] }] }, { available: true, listening: [{ pid: 913, local: '0.0.0.0:8080' }] });
+  check('risky executable-path match stays a candidate and is not counted as a PID-owned listener', riskyPathCandidate.items[0].processMatchType === 'executable-path-candidate' && riskyPathCandidate.items[0].riskSignal && riskyPathCandidate.items[0].riskOrigin === 'executable-path-candidate' && riskyPathCandidate.items[0].listenerCount === null && riskyPathCandidate.items[0].listenerCandidateCount === 1 && riskyPathCandidate.summary.riskItemsWithListeners === 0 && riskyPathCandidate.summary.riskItemsWithListenerCandidates === 1);
+  const unavailablePersistence = scanner.correlatePersistenceItems({ available: true, partial: false, items: [{ name: 'Service', executable: '/usr/bin/service', pid: null }] }, { available: false, items: [] }, { available: false, listening: [] });
+  check('persistence assessment preserves unknown process/listener joins instead of reporting no listeners', unavailablePersistence.partial && !unavailablePersistence.processAvailable && !unavailablePersistence.networkAvailable && unavailablePersistence.items[0].listenerCount === null && unavailablePersistence.items[0].listenerCandidateCount === null);
   const winArgs = scanner.parseWindowsCommandLine('\"C:\\Program Files\\Example\\uninstall.exe\" /quiet /log \"C:\\Program Files\\Example\\uninstall.log\"');
   check('Windows uninstall command parsing preserves quoted paths as arguments', winArgs.length === 4 && winArgs[0] === 'C:\\Program Files\\Example\\uninstall.exe' && winArgs[3] === 'C:\\Program Files\\Example\\uninstall.log');
   check('Windows uninstall command parser rejects unbalanced quotes', scanner.parseWindowsCommandLine('\"C:\\broken\\uninstall.exe /quiet').length === 0);
@@ -112,6 +155,23 @@ async function scannerTests() {
   const unknownScore = scanner.computeHealthScore({ system: {}, disks: [], processes: [], firewall: { enabled: null }, encryption: { enabled: null }, updates: { checkStatus: 'error' }, errors: { available: false } });
   check('unknown security signals reduce score and include a heuristic disclaimer', unknownScore.score < 100 && /not an antivirus/i.test(unknownScore.disclaimer));
   check('health-score findings do not claim malware detection', !unknownScore.findings.some((finding) => /malware found|virus detected/i.test(finding.msg)));
+  const correlationPosture = {
+    system: { totalRam: 8 * 1024 ** 3, freeRam: 4 * 1024 ** 3 }, disks: [{ mount: '/', size: 100, used: 30 }],
+    processes: [], processesAvailable: true, firewall: { enabled: true, verified: true }, encryption: { enabled: true },
+    updates: { checkStatus: 'ok', items: [], rebootRequired: false }, errors: { available: true, count24h: 0 },
+    networkSummary: { available: true, exposed: 1 },
+  };
+  const baselineCorrelationScore = scanner.computeHealthScore(correlationPosture);
+  const correlationScore = scanner.computeHealthScore({ ...correlationPosture, networkCorrelation: { available: true, flagged: 2 } });
+  check('health score separately penalizes risk-correlated listeners by a bounded amount', correlationScore.score === baselineCorrelationScore.score - 12);
+  check('health-score correlation finding explains risk as a heuristic', correlationScore.findings.some((finding) => /listener\(s\).*high-risk heuristics/.test(finding.msg)));
+  const persistencePosture = { available: true, partial: false, processAvailable: true, networkAvailable: true, summary: { riskItems: 1, riskItemsWithListeners: 1, riskItemsWithListenerCandidates: 0 } };
+  const cleanPersistencePosture = { available: true, partial: false, processAvailable: true, networkAvailable: true, summary: { riskItems: 0, riskItemsWithListeners: 0, riskItemsWithListenerCandidates: 0 } };
+  const persistenceScore = scanner.computeHealthScore({ ...correlationPosture, persistence: persistencePosture });
+  const cleanPersistenceScore = scanner.computeHealthScore({ ...correlationPosture, persistence: cleanPersistencePosture });
+  check('health score separately accounts for startup risk and a same-PID listener', persistenceScore.score === cleanPersistenceScore.score - 9 && persistenceScore.findings.some((finding) => /startup\/service item\(s\).*risk heuristics/.test(finding.msg)));
+  const candidatePersistenceScore = scanner.computeHealthScore({ ...correlationPosture, persistence: { ...persistencePosture, summary: { riskItems: 1, riskItemsWithListeners: 0, riskItemsWithListenerCandidates: 1 } } });
+  check('health score keeps executable-path listener matches distinct and unconfirmed', candidatePersistenceScore.score === cleanPersistenceScore.score - 7 && candidatePersistenceScore.findings.some((finding) => /ownership is unconfirmed/.test(finding.msg)));
   const processUnknownScore = scanner.computeHealthScore({
     system: { totalRam: 8 * 1024 ** 3, freeRam: 4 * 1024 ** 3 }, disks: [{ mount: '/', size: 100, used: 30 }],
     processes: [], processesAvailable: false, firewall: { enabled: true, verified: true }, encryption: { enabled: true },
@@ -122,6 +182,9 @@ async function scannerTests() {
   let liveSnapshot = null;
   try { liveSnapshot = await scanner.getProcessSnapshot(); } catch { /* an OS collector failure still must not produce an empty clean result */ }
   check('live process collector always returns an explicit availability snapshot', !!liveSnapshot && typeof liveSnapshot.available === 'boolean' && Array.isArray(liveSnapshot.items));
+  let livePersistence = null;
+  try { livePersistence = await scanner.getPersistenceInventory(); } catch { /* an OS collector failure must remain explicit */ }
+  check('live startup/service collector reports bounded source coverage and availability', !!livePersistence && typeof livePersistence.available === 'boolean' && typeof livePersistence.partial === 'boolean' && Array.isArray(livePersistence.sources) && Array.isArray(livePersistence.items) && Number.isSafeInteger(livePersistence.count) && livePersistence.count >= livePersistence.items.length && livePersistence.partial === (livePersistence.sources.some((source) => !source.complete) || livePersistence.truncated));
   if (scanner.IS_LINUX && liveSnapshot && liveSnapshot.available) {
     check('Linux process snapshots include stable start identities for PID reuse checks', liveSnapshot.items.some((process) => /^\d+$/.test(process.startId || '')));
   }
@@ -146,11 +209,28 @@ async function rendererTests() {
   const errorItems = [{ time: '2026-10-09 10:00', source: 'kernel', id: '', message: 'test error event' }];
   const errorsData = { items: errorItems, count24h: 1, available: true, window: '24h' };
   const connections = [
-    { proto: 'TCP', local: '0.0.0.0:22', remote: '0.0.0.0:*', state: 'LISTEN', pid: 900, process: 'sshd' },
+    { proto: 'TCP', local: '0.0.0.0:22', remote: '0.0.0.0:*', state: 'LISTEN', pid: 99, process: 'xmrig' },
     { proto: 'TCP', local: '127.0.0.1:5432', remote: '0.0.0.0:*', state: 'LISTEN', pid: 901, process: 'postgres' },
     { proto: 'TCP', local: '10.0.0.2:51234', remote: '1.2.3.4:443', state: 'ESTABLISHED', pid: 902, process: 'firefox' },
   ];
-  const network = { connections, listening: connections.slice(0, 2), exposed: [connections[0]], available: true, error: null };
+  const networkCorrelation = {
+    available: true, reason: null, assessed: 1, flagged: 1, unattributed: 0,
+    items: [{ proto: 'TCP', local: '0.0.0.0:22', pid: 99, process: 'xmrig', suspicion: 95, flags: flagged.flags }],
+  };
+  const network = { connections, listening: connections.slice(0, 2), exposed: [connections[0]], available: true, error: null, correlation: networkCorrelation };
+  const persistence = {
+    available: true, complete: false, partial: true, truncated: false, count: 2,
+    sources: [
+      { id: 'test-source', label: 'Test startup source', available: true, complete: true, count: 2, error: null },
+      { id: 'unavailable-source', label: 'Optional source', available: false, complete: false, count: 0, error: 'permission denied' },
+    ],
+    items: [
+      { kind: 'service', source: 'Test Service', scope: 'system', name: 'Suspicious Service', command: '/tmp/xmrig --service', executable: '/tmp/xmrig', sourcePath: '/etc/test.service', enabled: true, state: 'Running', pid: 99, processName: 'xmrig', processMatched: true, processMatchType: 'pid', matchedPid: 99, processRiskScore: 95, riskScore: 95, riskLevel: 'critical', riskSignal: true, riskOrigin: 'startup-and-running-process', riskFlags: flagged.flags, listenerCount: 1, listenerCandidateCount: 1 },
+      { kind: 'startup', source: 'Test Startup', scope: 'user', name: 'Firefox', command: '/usr/bin/firefox %U', executable: '/usr/bin/firefox', sourcePath: '/home/tester/.config/autostart/firefox.desktop', enabled: true, state: 'Configured', pid: null, matchedPid: 902, processName: 'firefox', processMatched: true, processMatchType: 'executable-path-candidate', processRiskScore: 0, riskScore: 0, riskLevel: 'clean', riskSignal: false, riskOrigin: null, riskFlags: [], listenerCount: null, listenerCandidateCount: 0 },
+    ],
+    summary: { totalItems: 2, enabledItems: 2, runningItems: 1, riskItems: 1, riskItemsWithListeners: 1, riskItemsWithListenerCandidates: 0, pidMatchedItems: 1, executableMatchedItems: 1, unattributedRunningItems: 0 },
+    processAvailable: true, networkAvailable: true,
+  };
   const junkRows = Array.from({ length: 12 }, (_, index) => ({ path: '/tmp/old-junk-' + index + '.tmp', size: 100 + index, kind: 'Temporary / backup file', mtimeMs: Date.now() - 3 * 86400000 }));
   const filesPayloads = [];
   const cleanPayloads = [];
@@ -159,7 +239,8 @@ async function rendererTests() {
   const scanQuick = {
     system: sysInfo, systemDisk: disks[0], disks, processesAvailable: true, processError: null, processes, suspicious: [flagged],
     firewall, encryption, updates, errors: errorsData,
-    networkSummary: { connections: 3, listening: 2, exposed: 1, available: true },
+    networkSummary: { connections: 3, listening: 2, exposed: 1, available: true }, networkCorrelation,
+    persistenceAvailable: true, persistencePartial: true, persistenceSummary: persistence.summary,
     junk: { available: true, incomplete: false, skipped: 0, error: null, scanned: 1000, reclaimable: 5 * GiB, count: 42, truncated: false },
     score: { score: 88, grade: 'A', findings: [{ sev: 'warning', msg: 'One process matched heuristic risk indicators', pts: 1 }], disclaimer: 'Heuristic posture indicator only; not an antivirus or a guarantee of security.' },
     durationMs: 1200,
@@ -187,6 +268,7 @@ async function rendererTests() {
     'apps:list': apps,
     'apps:uninstall': (payload) => { uninstallPayloads.push(payload); return { ok: true, error: null }; },
     'net:list': network,
+    'persist:list': persistence,
     'fw:status': firewall,
     'fw:enable': { ok: true, error: null },
     'enc:status': encryption,
@@ -218,6 +300,8 @@ async function rendererTests() {
   check('dashboard loads the system overview', $('#view').innerHTML.includes('System Overview'));
   check('health score and grade display', $('#view').innerHTML.includes('88') && $('#view').innerHTML.includes('GRADE A'));
   check('heuristic risk signal is displayed without malware verdict language', $('#view').innerHTML.includes('xmrig') && $('#view').innerHTML.includes('Heuristic posture indicator'));
+  check('dashboard exposes risk-correlated listener count without presenting it as a malware verdict', $('#view').innerHTML.includes('RISKY LISTENERS 1') && $('#view').innerHTML.includes('1 non-loopback listener(s) owned by risk-flagged process(es)'));
+  check('dashboard includes read-only startup risk summary and partial-coverage status', $('#view').innerHTML.includes('STARTUP RISKS 1') && $('#view').innerHTML.includes('1 startup/service risk item(s) matched') && $('#view').innerHTML.includes('partial coverage'));
   check('first-version sidebar has no paid edition, license or upgrade item', !$('.nav-item[data-route="pro"]') && !$('.lic-chip') && !$('#view').innerHTML.includes('Unlock PRO'));
   check('renderer receives a named method surface, not generic invoke IPC', typeof window.aegis.invoke === 'undefined' && calls.some((call) => call.channel === 'scan:quick'));
 
@@ -275,10 +359,31 @@ async function rendererTests() {
   await sleep(80);
   check('application inventory can refresh from an empty result', $$('#view table.data tbody tr').length === 2);
 
+  await navTo('persistence');
+  check('startup/service view renders source coverage and configured entries', $('#view').innerHTML.includes('Startup &amp; Services') && $('#view').innerHTML.includes('Suspicious Service') && $('#view').innerHTML.includes('Coverage is partial'));
+  check('startup/service view links a risky persistent item to its current listener', $('#view').innerHTML.includes('1 PID-LINKED') && $('#view').innerHTML.includes('CRITICAL'));
+  check('startup/service filter handles a no-match query', ($('#persist-filter').value = 'no-such-entry', $('#persist-filter').dispatchEvent(new dom.window.Event('input', { bubbles: true })), $('#persist-tbody').innerHTML.includes('NO STARTUP/SERVICE ITEMS MATCH THE FILTER')));
+  const goodPersistence = canned['persist:list'];
+  canned['persist:list'] = { available: false, complete: false, partial: true, error: 'permission denied', sources: [], items: [], summary: {} };
+  click($('#persist-refresh'));
+  await sleep(80);
+  check('unavailable startup sources show unknown counts instead of a clean empty inventory', $('#view').innerHTML.includes('STATUS UNKNOWN') && $('#view').innerHTML.includes('NO SOURCE DATA') && $$('#view .stat-value').slice(0, 2).every((node) => node.textContent === '—'));
+  canned['persist:list'] = goodPersistence;
+  click($('#persist-refresh'));
+  await sleep(80);
+
   await navTo('network');
   check('network view shows firewall verification caveat', $('#view').innerHTML.includes('Firewall Status') && $('#view').innerHTML.includes('default inbound policy verified'));
   check('network view distinguishes non-loopback listeners', $('#view').innerHTML.includes('1 bound to a non-loopback address') && $$('#n-tbody tr').length === 3);
+  check('network view attributes a risky listener to the process-risk inventory', $('#view').innerHTML.includes('Cross-sensor listener correlation') && $('#view').innerHTML.includes('1 matched a process with high-risk heuristics') && $('#view').innerHTML.includes('xmrig'));
   const goodNetworkSnapshot = canned['net:list'];
+  canned['net:list'] = { ...goodNetworkSnapshot, correlation: { available: true, assessed: 1, flagged: 1 } };
+  click($('#n-refresh'));
+  await sleep(80);
+  check('network view treats incomplete correlation counts as unknown, not zero or clean', $('#view').innerHTML.includes('unavailable or incomplete') && !$('#view').innerHTML.includes('0 non-loopback listener(s) assessed'));
+  canned['net:list'] = goodNetworkSnapshot;
+  click($('#n-refresh'));
+  await sleep(80);
   canned['net:list'] = null;
   click($('#n-refresh'));
   await sleep(80);
@@ -296,16 +401,23 @@ async function rendererTests() {
   await navTo('audit');
   click($('#au-run'));
   await sleep(100);
-  check('audit yields seven local checks with heuristic disclaimer', $$('.audit-item').length === 7 && $('#view').innerHTML.includes('not an antivirus'));
+  check('audit yields nine local checks with heuristic disclaimer', $$('.audit-item').length === 9 && $('#view').innerHTML.includes('not an antivirus'));
+  check('audit includes the new persistence check status', $$('.audit-item').length === 9 && $$('.audit-item').some((row) => row.innerHTML.includes('Startup and service persistence')));
+  check('audit surfaces risk-correlated listener outcome as heuristic only', $('#view').innerHTML.includes('Cross-sensor listener risk correlation') && $('#view').innerHTML.includes('1 listener(s) matched process risk heuristics'));
+  check('audit includes startup/service risk and partial-source coverage', $('#view').innerHTML.includes('Startup and service persistence') && $('#view').innerHTML.includes('1 startup/service item(s) matched risk heuristics'));
   check('audit process-risk finding is explicitly heuristic', $('#view').innerHTML.includes('matched simple name/path/resource heuristics'));
   click($('#au-export'));
   await sleep(80);
   const report = reportPayloads[0];
+  check('exported audit summary contains the new persistence check status', !!report && report.checks.length === 9 && report.checks.some((item) => item.title === 'Startup and service persistence'));
   check('exported report omits raw host/user/path/process/log/network details', !!report && !JSON.stringify(report).includes('tester') && !JSON.stringify(report).includes('/home/') && !JSON.stringify(report).includes('xmrig') && !JSON.stringify(report).includes('1.2.3.4') && !JSON.stringify(report).includes('test error event'));
   check('audit report documents its privacy limitation', !!report && /omits hostname/.test(report.privacyNote));
+  check('exported report includes aggregate correlation counts without process identities', !!report && report.counts.correlatedRiskListeners === 1 && report.counts.unattributedListeners === 0 && !JSON.stringify(report).includes('xmrig'));
+  check('exported report includes aggregate startup-risk counts and completeness only', !!report && report.counts.startupItems === 2 && report.counts.riskStartupItems === 1 && report.counts.riskStartupItemsWithListeners === 1 && report.counts.riskStartupItemsWithListenerCandidates === 0 && report.counts.startupInventoryPartial === true && !JSON.stringify(report).includes('Suspicious Service'));
 
   canned['proc:list'] = { available: false, items: [], error: 'permission denied' };
   canned['net:list'] = { available: false, connections: [], listening: [], exposed: [], error: 'query denied' };
+  canned['persist:list'] = { available: false, partial: true, complete: false, error: 'Startup source access denied', sources: [], items: [], summary: {} };
   canned['updates:check'] = { items: [], history: [], checkStatus: 'error', note: 'Update service unavailable', rebootRequired: null };
   click($('#au-again'));
   await sleep(100);
@@ -313,8 +425,15 @@ async function rendererTests() {
   await sleep(80);
   const unknownReport = reportPayloads[1];
   check('audit export preserves unavailable counts as unknown instead of zero', !!unknownReport && unknownReport.counts.pendingUpdates === null && unknownReport.counts.processRiskSignals === null && unknownReport.counts.externallyBoundEndpoints === null && unknownReport.counts.listeningEndpoints === null);
+  check('audit export preserves unavailable correlation counts as unknown', !!unknownReport && unknownReport.counts.correlatedRiskListeners === null && unknownReport.counts.unattributedListeners === null);
+  check('audit export preserves unavailable startup inventory counts as unknown', !!unknownReport && unknownReport.counts.startupItems === null && unknownReport.counts.riskStartupItems === null && unknownReport.counts.riskStartupItemsWithListeners === null && unknownReport.counts.riskStartupItemsWithListenerCandidates === null && unknownReport.counts.startupInventoryPartial === null);
+  const persistenceAuditRow = $$('.audit-item').find((row) => row.innerHTML.includes('Startup and service persistence'));
+  check('audit marks unavailable startup inventory as unknown rather than healthy', !!persistenceAuditRow && persistenceAuditRow.classList.contains('warn'));
+  const correlationAuditRow = $$('.audit-item').find((row) => row.innerHTML.includes('Cross-sensor listener risk correlation'));
+  check('audit marks unavailable correlation as unknown rather than healthy', !!correlationAuditRow && correlationAuditRow.classList.contains('warn'));
   canned['proc:list'] = goodProcessSnapshot;
   canned['net:list'] = goodNetworkSnapshot;
+  canned['persist:list'] = persistence;
   canned['updates:check'] = updates;
 
   const forbiddenRoutes = ['pro', 'license', 'checkout'];

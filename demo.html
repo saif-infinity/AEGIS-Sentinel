@@ -490,8 +490,9 @@ input[type="checkbox"]:checked::after {
         <button class="nav-item" data-route="processes"><span class="nav-idx">03</span> __ICON_CHIP__ <span>Processes</span></button>
         <button class="nav-item" data-route="apps"><span class="nav-idx">04</span> __ICON_LAYERS__ <span>Applications</span></button>
         <button class="nav-item" data-route="network"><span class="nav-idx">05</span> __ICON_GLOBE__ <span>Network</span></button>
-        <button class="nav-item" data-route="audit"><span class="nav-idx">06</span> __ICON_SHIELD__ <span>Security Audit</span></button>
-        <button class="nav-item" data-route="updates"><span class="nav-idx">07</span> __ICON_REFRESH__ <span>Updates</span></button>
+        <button class="nav-item" data-route="persistence"><span class="nav-idx">06</span> __ICON_POWER__ <span>Startup &amp; Services</span></button>
+        <button class="nav-item" data-route="audit"><span class="nav-idx">07</span> __ICON_SHIELD__ <span>Security Audit</span></button>
+        <button class="nav-item" data-route="updates"><span class="nav-idx">08</span> __ICON_REFRESH__ <span>Updates</span></button>
       </nav>
     </aside>
 
@@ -569,9 +570,35 @@ input[type="checkbox"]:checked::after {
       { proto: 'UDP', local: '0.0.0.0:5353', remote: '*', state: 'UNCONN', pid: 742, process: 'gnome-shell' },
       { proto: 'UDP', local: '0.0.0.0:68', remote: '*', state: 'UNCONN', pid: 640, process: 'systemd-network' },
       { proto: 'TCP', local: '192.168.1.14:60012', remote: '45.155.205.233:9001', state: 'ESTABLISHED', pid: 7441, process: 'xmrig' },
+      { proto: 'TCP', local: '0.0.0.0:9001', remote: '0.0.0.0:*', state: 'LISTEN', pid: 7441, process: 'xmrig' },
     ];
     const listening = conns.filter((c) => /LISTEN|BOUND|UNCONN/i.test(c.state));
     const exposed = listening.filter((c) => !/^127\.|^::1|^\[::1\]/i.test(c.local));
+    const processByPid = new Map(procs.map((process) => [process.pid, process]));
+    const correlatedItems = exposed.flatMap((endpoint) => {
+      const owner = processByPid.get(endpoint.pid);
+      return owner && (owner.suspicion >= 35 || ['high', 'critical'].includes(owner.suspicionLevel))
+        ? [{ proto: endpoint.proto, local: endpoint.local, pid: endpoint.pid, process: owner.name, suspicion: owner.suspicion, flags: owner.flags.slice(0, 5) }]
+        : [];
+    });
+    const networkCorrelation = {
+      available: true, reason: null, assessed: exposed.length, flagged: correlatedItems.length,
+      unattributed: exposed.filter((endpoint) => !processByPid.has(endpoint.pid)).length, items: correlatedItems,
+    };
+    const persistence = {
+      available: true, complete: true, partial: false, truncated: false, count: 3,
+      sources: [
+        { id: 'demo-systemd', label: 'systemd services (system)', available: true, complete: true, count: 2, error: null },
+        { id: 'demo-xdg', label: 'XDG autostart (user)', available: true, complete: true, count: 1, error: null },
+      ],
+      items: [
+        { kind: 'service', source: 'systemd (system)', scope: 'system', name: 'xmrig.service', command: '/tmp/.cache/xmrig --service', executable: '/tmp/.cache/xmrig', sourcePath: '/etc/systemd/system/xmrig.service', enabled: true, state: 'active/running', startMode: 'enabled', pid: 7441, matchedPid: 7441, processName: 'xmrig', processMatched: true, processMatchType: 'pid', processRiskScore: 98, riskScore: 98, riskLevel: 'critical', riskSignal: true, riskOrigin: 'startup-and-running-process', riskFlags: procs.find((p) => p.pid === 7441).flags, listenerCount: 1, listenerCandidateCount: 0 },
+        { kind: 'service', source: 'systemd (system)', scope: 'system', name: 'docker.service', command: '/usr/bin/dockerd -H fd://', executable: '/usr/bin/dockerd', sourcePath: '/usr/lib/systemd/system/docker.service', enabled: true, state: 'active/running', startMode: 'enabled', pid: 6102, matchedPid: 6102, processName: 'dockerd', processMatched: true, processMatchType: 'pid', processRiskScore: 0, riskScore: 0, riskLevel: 'clean', riskSignal: false, riskOrigin: null, riskFlags: [], listenerCount: 1, listenerCandidateCount: 0 },
+        { kind: 'startup', source: 'XDG autostart', scope: 'user', name: 'Firefox session', command: '/usr/lib/firefox/firefox %U', executable: '/usr/lib/firefox/firefox', sourcePath: '/home/alex/.config/autostart/firefox.desktop', enabled: true, state: 'Configured', pid: null, matchedPid: 1391, processName: 'firefox', processMatched: true, processMatchType: 'executable-path-candidate', processRiskScore: 0, riskScore: 0, riskLevel: 'clean', riskSignal: false, riskOrigin: null, riskFlags: [], listenerCount: null, listenerCandidateCount: 0 },
+      ],
+      summary: { totalItems: 3, enabledItems: 3, runningItems: 2, riskItems: 1, riskItemsWithListeners: 1, riskItemsWithListenerCandidates: 0, pidMatchedItems: 2, executableMatchedItems: 1, unattributedRunningItems: 0 },
+      processAvailable: true, networkAvailable: true,
+    };
     const firewall = { enabled: true, verified: false, profiles: [{ name: 'ufw', enabled: true }, { name: 'firewalld', enabled: false }, { name: 'nftables ruleset', enabled: true }], details: 'Firewall detected; inbound policy requires manual review' };
     const encryption = { enabled: true, details: 'Encryption detected in the root device chain' };
     const updates = { items: [
@@ -597,14 +624,18 @@ input[type="checkbox"]:checked::after {
     const scanQuick = {
       system: sys, systemDisk: disks[0], disks, processesAvailable: true, processError: null, processes: procs, suspicious,
       firewall, encryption, updates, errors,
-      networkSummary: { connections: conns.length, listening: listening.length, exposed: exposed.length, available: true },
+      networkSummary: { connections: conns.length, listening: listening.length, exposed: exposed.length, available: true }, networkCorrelation,
+      persistenceAvailable: true, persistencePartial: false, persistenceSummary: persistence.summary,
       junk: { available: true, incomplete: false, skipped: 0, error: null, scanned: 184322, reclaimable: 612 * 1024 * 1024, count: 1843, truncated: false },
       score: { score: 58, grade: 'C', findings: [
         { sev: 'critical', msg: 'Process-risk heuristics flagged 2 process(es); investigate manually', pts: 12 },
         { sev: 'warning', msg: 'Firewall inbound policy could not be verified', pts: 8 },
         { sev: 'warning', msg: '3 pending operating-system update(s)', pts: 9 },
         { sev: 'warning', msg: '4 system error event(s) in the last 24h', pts: 2 },
-        { sev: 'warning', msg: '2 externally bound listening endpoint(s) need review', pts: 4 },
+        { sev: 'warning', msg: '5 externally bound listening endpoint(s) need review', pts: 10 },
+        { sev: 'warning', msg: '1 non-loopback listener is owned by a process with high-risk heuristics; investigate manually', pts: 6 },
+        { sev: 'warning', msg: '1 startup/service item(s) match process-risk heuristics; review the source and command', pts: 4 },
+        { sev: 'warning', msg: '1 risk-marked startup/service item(s) share a PID with a listening endpoint', pts: 5 },
       ], disclaimer: 'Heuristic posture indicator only; not an antivirus or a guarantee of security.' },
       durationMs: 2340,
     };
@@ -629,7 +660,8 @@ input[type="checkbox"]:checked::after {
       'proc:kill': { ok: true, error: null },
       'apps:list': apps,
       'apps:uninstall': { ok: true, error: null },
-      'net:list': { connections: conns, listening, exposed, available: true, error: null },
+      'net:list': { connections: conns, listening, exposed, available: true, error: null, correlation: networkCorrelation },
+      'persist:list': persistence,
       'fw:status': firewall,
       'fw:enable': { ok: true, error: null },
       'enc:status': encryption,
@@ -650,7 +682,7 @@ input[type="checkbox"]:checked::after {
       quickScan: () => call('scan:quick'), scanFiles: (p) => call('scan:files', p), cleanFiles: (p) => call('files:clean', p),
       listProcesses: () => call('proc:list'), killProcess: (p) => call('proc:kill', p),
       listApps: () => call('apps:list'), uninstallApp: (p) => call('apps:uninstall', p),
-      getNetwork: () => call('net:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
+      getNetwork: () => call('net:list'), listPersistence: () => call('persist:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
       getEncryption: () => call('enc:status'), checkUpdates: () => call('updates:check'), installUpdates: () => call('updates:install'),
       getSystemErrors: () => call('errors:list'), pickDirectory: () => call('dialog:pickDir'), saveReport: (p) => call('report:save', p),
       minimize: () => call('win:minimize'), toggleMaximize: () => call('win:toggleMax'), close: () => call('win:close'),
@@ -684,6 +716,9 @@ const fmtBytes = (n) => {
   return n.toFixed(n >= 100 ? 0 : 1) + ' ' + u[i];
 };
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-US');
+const isCorrelationAvailable = (value) => !!value && value.available === true && ['assessed', 'flagged', 'unattributed'].every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0);
+const isPersistenceAssessmentAvailable = (value) => !!value && value.available === true && value.summary && ['totalItems', 'enabledItems', 'runningItems', 'riskItems', 'riskItemsWithListeners', 'riskItemsWithListenerCandidates'].every((key) => Number.isSafeInteger(value.summary[key]) && value.summary[key] >= 0);
+const isPersistenceSummaryAvailable = (value) => !!value && ['totalItems', 'enabledItems', 'runningItems', 'riskItems', 'riskItemsWithListeners', 'riskItemsWithListenerCandidates'].every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0);
 const clampPct = (n) => Math.max(0, Math.min(100, Math.round(n || 0)));
 const barClass = (p) => (p >= 85 ? 'r' : p >= 60 ? 'a' : 'g');
 const timeAgo = (iso) => {
@@ -708,6 +743,7 @@ const API_METHODS = {
   'apps:list': () => IPC.listApps(),
   'apps:uninstall': (payload) => IPC.uninstallApp(payload),
   'net:list': () => IPC.getNetwork(),
+  'persist:list': () => IPC.listPersistence(),
   'fw:status': () => IPC.getFirewall(),
   'fw:enable': () => IPC.enableFirewall(),
   'enc:status': () => IPC.getEncryption(),
@@ -840,7 +876,7 @@ VIEWS.dashboard = {
             <span class="spinner" style="width:22px;height:22px;border-width:3px"></span>
             <div>
               <div style="font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase">Running first system scan</div>
-              <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px">SENSORS: FILESYSTEM / PROCESSES / NETWORK / FIREWALL / UPDATES / LOGS</div>
+              <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:5px">SENSORS: FILESYSTEM / PROCESSES / NETWORK / STARTUP / FIREWALL / UPDATES / LOGS</div>
             </div>
           </div>
           <div class="card"><div class="progress"><i></i></div></div>
@@ -862,6 +898,11 @@ VIEWS.dashboard = {
     const updCount = (d.updates && Array.isArray(d.updates.items)) ? d.updates.items.length : null;
     const errCount = (d.errors && Array.isArray(d.errors.items)) ? d.errors.items.length : null;
     const networkAvailable = !!(d.networkSummary && d.networkSummary.available !== false && Number.isFinite(d.networkSummary.exposed));
+    const networkCorrelation = isCorrelationAvailable(d.networkCorrelation)
+      ? d.networkCorrelation
+      : { available: false, flagged: null, unattributed: null, assessed: null };
+    const persistenceAvailable = d.persistenceAvailable === true && isPersistenceSummaryAvailable(d.persistenceSummary);
+    const persistenceSummary = persistenceAvailable ? d.persistenceSummary : { riskItems: null, riskItemsWithListeners: null };
     const junkAvailable = !!(d.junk && d.junk.available !== false);
 
     const statCard = (label, value, sub, pct, cls) => `
@@ -901,6 +942,8 @@ VIEWS.dashboard = {
         <span class="badge ${d.updates && d.updates.checkStatus === 'ok' ? (updCount === 0 ? 'ok' : 'warn') : 'neutral'}"><span class="dot"></span>UPDATES ${!d.updates || d.updates.checkStatus !== 'ok' ? 'UNKNOWN' : updCount === 0 ? 'NO PENDING' : updCount + ' PENDING'}</span>
         <span class="badge ${d.errors && d.errors.available ? (errCount === 0 ? 'ok' : 'warn') : 'neutral'}"><span class="dot"></span>ERRORS 24H ${d.errors && d.errors.available ? errCount : 'UNKNOWN'}</span>
         <span class="badge ${!processAvailable ? 'neutral' : suspicious.length === 0 ? 'ok' : 'warn'}"><span class="dot"></span>RISK SIGNALS ${processAvailable ? suspicious.length : 'UNKNOWN'}</span>
+        <span class="badge ${!networkCorrelation.available ? 'neutral' : networkCorrelation.flagged ? 'warn' : 'ok'}"><span class="dot"></span>RISKY LISTENERS ${networkCorrelation.available ? networkCorrelation.flagged : 'UNKNOWN'}</span>
+        <span class="badge ${!persistenceAvailable ? 'neutral' : persistenceSummary.riskItems ? 'warn' : 'ok'}"><span class="dot"></span>STARTUP RISKS ${persistenceAvailable ? persistenceSummary.riskItems : 'UNKNOWN'}</span>
       </div>`;
 
     const tickerItems = [
@@ -908,6 +951,8 @@ VIEWS.dashboard = {
       ...suspicious.slice(0, 5).map((p) => `<span class="crit"><b>RISK SIGNAL</b> ${esc(p.name)} — ${esc(p.flags[0] || 'anomaly')}</span>`),
       `<span><b>SCAN</b> ${junkAvailable ? fmtNum(d.junk.scanned) + ' files inspected · ' + fmtBytes(d.junk.reclaimable) + (d.junk.incomplete ? ' observed in partial coverage' : ' old cleanup candidates') : 'cleanup-folder coverage unavailable'}</span>`,
       `<span><b>NET</b> ${networkAvailable ? d.networkSummary.connections + ' connections · ' + d.networkSummary.exposed + ' non-loopback listeners' : 'endpoint exposure unknown'}</span>`,
+      `<span><b>CORRELATION</b> ${networkCorrelation.available ? networkCorrelation.flagged + ' non-loopback listener(s) owned by risk-flagged process(es)' : 'process-to-listener correlation unknown'}</span>`,
+      `<span><b>STARTUP</b> ${persistenceAvailable ? persistenceSummary.riskItems + ' startup/service risk item(s) matched' + (persistenceSummary.riskItemsWithListeners ? ' · ' + persistenceSummary.riskItemsWithListeners + ' PID-linked listener(s)' : '') + (persistenceSummary.riskItemsWithListenerCandidates ? ' · ' + persistenceSummary.riskItemsWithListenerCandidates + ' path-candidate listener match(es), ownership unconfirmed' : '') + (d.persistencePartial ? ' · partial coverage' : '') : 'startup/service inventory unknown'}</span>`,
       processAvailable ? `<span class="ok"><b>ENGINE</b> ${processList.length} processes profiled in ${(d.durationMs / 1000).toFixed(1)}s</span>` : `<span><b>ENGINE</b> process inventory unavailable</span>`,
     ];
     const tickerTrack = (tickerItems.concat(tickerItems)).map((t) => `<span>${t}</span>`).join('');
@@ -1387,6 +1432,11 @@ VIEWS.network = {
     const listening = Array.isArray(net.listening) ? net.listening : [];
     const exposed = Array.isArray(net.exposed) ? net.exposed : [];
     const networkAvailable = net.available !== false;
+    const correlation = net.correlation;
+    const correlationAvailable = isCorrelationAvailable(correlation);
+    const correlationItems = correlationAvailable && Array.isArray(correlation.items)
+      ? correlation.items.filter((item) => item && typeof item === 'object').slice(0, 50)
+      : [];
     const fwVerified = fw.enabled === true && fw.verified === true;
     const fwBadge = fw.enabled === true
       ? `<span class="badge ${fwVerified ? 'ok' : 'warn'}"><span class="dot"></span>${fwVerified ? 'INBOUND POLICY VERIFIED' : 'ACTIVE · POLICY UNKNOWN'}</span>`
@@ -1419,6 +1469,20 @@ VIEWS.network = {
           <div class="muted mono" style="font-size:10px;margin:8px 0 12px">${networkAvailable ? exposed.length + ' bound to a non-loopback address' : esc(net.error || 'Endpoint exposure unavailable')}</div>
           <div class="tag-row" style="max-height:190px;overflow-y:auto">${listenChips || `<span class="muted" style="font-size:11px">${networkAvailable ? 'No listening endpoints detected' : 'Network endpoint data unavailable'}</span>`}</div>
         </div>
+      </div>
+      <div class="card mt16">
+        <div class="card-title">${icon('shield')} Cross-sensor listener correlation</div>
+        ${!correlationAvailable
+          ? `<p class="muted" style="font-size:11px;line-height:1.7">${esc((correlation && correlation.reason) || 'Process-to-listener correlation is unavailable or incomplete. No clean result is inferred.')}</p>`
+          : `<p class="muted" style="font-size:11px;line-height:1.7">${fmtNum(correlation.assessed)} non-loopback listener(s) assessed · ${fmtNum(correlation.flagged)} matched a process with high-risk heuristics · ${fmtNum(correlation.unattributed)} could not be mapped to the process inventory. This is a heuristic correlation, not a malware verdict.</p>
+            ${correlationItems.slice(0, 10).map((item) => `<div class="list-row">
+              ${icon('warn', 'sev-ic high')}
+              <div class="lr-body"><div class="lr-title">${esc(item.process)} <span class="mono muted">PID ${Number(item.pid) || '—'} · ${esc(item.proto)} ${esc(item.local)}</span></div>
+              <div class="lr-sub">${(Array.isArray(item.flags) ? item.flags : []).map((flag) => esc(flag)).join(' · ') || 'Process risk heuristic matched'}</div></div>
+            </div>`).join('') || (correlation.flagged > 0
+              ? `<div class="empty"><p>${fmtNum(correlation.flagged)} listener(s) matched, but endpoint details are unavailable.</p></div>`
+              : '<div class="empty"><p>No non-loopback listener matched a process-risk heuristic.</p></div>')}
+            ${correlation.flagged > 10 ? `<p class="muted" style="font-size:10px;margin-top:8px">Showing the first 10 of ${fmtNum(correlation.flagged)} correlated listener(s).</p>` : ''}`}
       </div>
       <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Active Connections</span><span class="sec-line"></span><span class="sec-idx">${networkAvailable ? connections.length + ' TOTAL' : 'STATUS UNKNOWN'}</span></div>
       <div class="toolbar">
@@ -1499,6 +1563,135 @@ async function enableFirewallNow() {
   } else if (result && result.error !== 'Cancelled') toast(result.error || 'Could not verify firewall status', 'error');
 }
 
+/* --------------------------------------------------- startup / services */
+
+VIEWS.persistence = {
+  label: 'Startup & Services',
+  data: null,
+  render() {
+    const inventory = VIEWS.persistence.data;
+    if (!inventory) {
+      return `
+        <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Startup &amp; Services</span><span class="sec-line"></span></div>
+        <div class="card" style="display:flex;gap:16px;align-items:center">
+          <span class="spinner"></span><span class="muted" style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600">Reading startup and service sources…</span>
+        </div>`;
+    }
+    const summary = inventory.summary || {};
+    const dataAvailable = isPersistenceAssessmentAvailable(inventory);
+    const items = Array.isArray(inventory.items) ? inventory.items : [];
+    const sources = Array.isArray(inventory.sources) ? inventory.sources : [];
+    const sourceBadges = (sources.length ? sources.map((source) => `<span class="badge ${source.complete ? 'ok' : source.available ? 'warn' : 'neutral'}" title="${esc(source.error || '')}"><span class="dot"></span>${esc(source.label)} · ${source.complete ? fmtNum(source.count) + ' item(s)' : source.available ? 'PARTIAL' : 'UNKNOWN'}</span>`).join('') : '<span class="badge neutral"><span class="dot"></span>NO SOURCE DATA</span>') + `
+      <span class="badge ${inventory.processAvailable === true ? 'ok' : 'neutral'}" title="${esc(inventory.processError || '')}"><span class="dot"></span>PROCESS JOIN · ${inventory.processAvailable === true ? 'AVAILABLE' : 'UNKNOWN'}</span>
+      <span class="badge ${inventory.networkAvailable === true ? 'ok' : 'neutral'}" title="${esc(inventory.networkError || '')}"><span class="dot"></span>NETWORK JOIN · ${inventory.networkAvailable === true ? 'AVAILABLE' : 'UNKNOWN'}</span>`;
+    const coverageMessage = !dataAvailable
+      ? inventory.error || 'Startup/service inventory is unavailable or incomplete; no clean result is inferred.'
+      : inventory.partial
+        ? 'Coverage is partial. Check the source statuses above; unavailable sources are not treated as empty.'
+        : 'Read-only inventory of supported startup/service sources only; this is not an exhaustive persistence scan. A flagged item is a heuristic lead, not proof of malicious activity.';
+    return `
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Startup &amp; Services</span><span class="sec-line"></span><span class="sec-idx">${dataAvailable ? fmtNum(summary.totalItems) + ' ITEMS' : 'STATUS UNKNOWN'}</span></div>
+      <div class="card tick" style="margin-bottom:16px">
+        <div class="card-title">${icon('power')} Persistence and service inventory</div>
+        <p class="muted" style="font-size:11px;line-height:1.7">${esc(coverageMessage)} Risk correlation joins startup definitions and running owners to process-risk heuristics and current listeners. Coverage is limited to the listed OS sources (it does not include every possible persistence mechanism, such as shell profiles or all scheduled jobs). Nothing is disabled, removed or changed.</p>
+        <div class="tag-row mt16">${sourceBadges || '<span class="badge neutral"><span class="dot"></span>NO SOURCES REPORTED</span>'}</div>
+        ${inventory.truncated ? '<p class="muted" style="font-size:10px;margin-top:10px">A source or display limit was reached; the listed items and correlated risk counts may omit entries.</p>' : ''}
+      </div>
+      <div class="grid-4" style="margin-bottom:16px">
+        <div class="card stat"><div class="stat-label">Configured items</div><div class="stat-value">${dataAvailable ? fmtNum(summary.totalItems) : '—'}</div><div class="stat-sub">reported by available sources</div></div>
+        <div class="card stat"><div class="stat-label">Enabled at startup</div><div class="stat-value">${dataAvailable ? fmtNum(summary.enabledItems) : '—'}</div><div class="stat-sub">services and autostart entries</div></div>
+        <div class="card stat"><div class="stat-label">Risk heuristics</div><div class="stat-value" style="color:${!dataAvailable ? 'var(--dim)' : summary.riskItems ? 'var(--amber)' : 'var(--green)'}">${dataAvailable ? fmtNum(summary.riskItems) : '—'}</div><div class="stat-sub">not a malware verdict</div></div>
+        <div class="card stat"><div class="stat-label">Risk + listeners</div><div class="stat-value" style="color:${!dataAvailable || inventory.networkAvailable !== true ? 'var(--dim)' : summary.riskItemsWithListeners ? 'var(--red)' : 'var(--green)'}">${dataAvailable && inventory.networkAvailable === true ? fmtNum(summary.riskItemsWithListeners) : '—'}</div><div class="stat-sub">PID link; path matches are candidates</div></div>
+      </div>
+      <div class="toolbar">
+        <input class="input" id="persist-filter" placeholder="Filter by name, command, source or process…" />
+        <span class="spacer"></span>
+        <button class="btn" id="persist-refresh">${icon('refresh')} Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Type / Source</th><th>Startup item / Command</th><th>Startup state</th><th>Runtime owner</th><th>Listeners</th><th>Risk heuristic</th></tr></thead>
+          <tbody id="persist-tbody"></tbody>
+        </table>
+      </div>`;
+  },
+  init() {
+    const refresh = $('#persist-refresh'); if (refresh) refresh.addEventListener('click', loadPersistence);
+    const filter = $('#persist-filter');
+    if (filter) filter.addEventListener('input', (event) => renderPersistenceRows(event.target.value));
+    renderPersistenceRows('');
+    if (!VIEWS.persistence.data) loadPersistence();
+  },
+};
+
+function renderPersistenceRows(query) {
+  const inventory = VIEWS.persistence.data;
+  const tbody = $('#persist-tbody');
+  if (!tbody) return;
+  if (!isPersistenceAssessmentAvailable(inventory)) {
+    const detail = inventory && inventory.error || 'Startup/service sources are unavailable or the assessment is incomplete';
+    tbody.innerHTML = `<tr><td colspan="6" class="dim" style="text-align:center;padding:24px">${esc(detail)} — inventory status unknown</td></tr>`;
+    return;
+  }
+  const rows = (Array.isArray(inventory.items) ? inventory.items : []).filter((item) => {
+    const text = [item.name, item.source, item.command, item.sourcePath, item.processName, item.scope].join(' ').toLowerCase();
+    return !query || text.includes(String(query).toLowerCase());
+  }).sort((a, b) => Number(b.riskSignal) - Number(a.riskSignal) || Number(b.listenerCount > 0) - Number(a.listenerCount > 0) || String(a.name).localeCompare(String(b.name)));
+  tbody.innerHTML = rows.slice(0, 500).map((item) => {
+    const riskContext = item.riskOrigin === 'executable-path-candidate' ? 'High-risk process is linked by executable path only; ownership is unconfirmed.' : item.riskOrigin === 'startup-definition' ? 'Risk signal comes from the startup definition heuristic.' : item.riskOrigin === 'running-process' ? 'Risk signal comes from the process matched by PID.' : item.riskOrigin === 'startup-and-running-process' ? 'Risk signals match both the startup definition and the PID-linked process.' : 'Heuristic only; review the command and source.';
+    const risk = item.riskSignal
+      ? `<span class="badge ${item.riskLevel === 'critical' ? 'crit' : 'warn'}" title="${esc(riskContext)}"><span class="dot"></span>${esc(String(item.riskLevel || 'high').toUpperCase())} · ${Number(item.riskScore) || 0}/100</span>`
+      : `<span class="badge ${item.riskLevel === 'medium' ? 'neutral' : 'ok'}" title="${esc(riskContext)}"><span class="dot"></span>${item.riskLevel === 'medium' ? 'LOW SIGNAL' : 'NO MATCH'}</span>`;
+    const listeners = item.listenerCount != null
+      ? item.listenerCount > 0
+        ? `<span class="badge warn"><span class="dot"></span>${fmtNum(item.listenerCount)} PID-LINKED</span>`
+        : '<span class="badge neutral"><span class="dot"></span>NONE</span>'
+      : item.listenerCandidateCount != null
+        ? item.listenerCandidateCount > 0
+          ? `<span class="badge info"><span class="dot"></span>${fmtNum(item.listenerCandidateCount)} POSSIBLE</span>`
+          : '<span class="badge neutral"><span class="dot"></span>NO PATH-MATCHED LISTENER</span>'
+        : '<span class="badge neutral"><span class="dot"></span>UNKNOWN</span>';
+    const startup = item.enabled === true ? '<span class="badge info"><span class="dot"></span>ENABLED</span>' : item.enabled === false ? '<span class="badge neutral"><span class="dot"></span>DISABLED</span>' : '<span class="badge neutral"><span class="dot"></span>UNKNOWN</span>';
+    const command = item.command || item.executable || '';
+    const owner = item.processMatchType === 'pid'
+      ? `${esc(item.processName || 'Process')} · PID ${Number(item.pid) || '—'}`
+      : item.processMatchType === 'executable-path-candidate'
+        ? `${esc(item.processName || 'Process')} · PID ${Number(item.matchedPid) || '—'} · executable match only`
+        : item.pid ? `PID ${Number(item.pid) || '—'} · process identity unavailable` : 'Not currently matched';
+    return `<tr>
+      <td><span class="badge info">${esc(item.kind || 'item')}</span><span class="cell-sub">${esc(item.source || 'unknown source')} · ${esc(item.scope || 'unknown scope')}</span></td>
+      <td class="cell-main">${esc(item.name || 'Unnamed item')}<span class="cell-sub">${esc(command || item.sourcePath || 'Command unavailable')}${item.sourcePath && command ? '<br>' + esc(item.sourcePath) : ''}</span></td>
+      <td>${startup}<span class="cell-sub">${esc(item.state || 'State unavailable')}${item.startMode ? ' · ' + esc(item.startMode) : ''}</span></td>
+      <td class="mono dim">${owner}</td>
+      <td>${listeners}</td>
+      <td>${risk}${item.riskFlags && item.riskFlags.length ? `<span class="cell-sub">${item.riskFlags.map((flag) => esc(flag)).join('<br>')}</span>` : ''}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" class="dim" style="text-align:center;padding:24px">${itemsCountMessage(inventory, rows.length, query)}</td></tr>`;
+  if (rows.length > 500) {
+    tbody.innerHTML += `<tr><td colspan="6" class="dim" style="text-align:center;padding:12px">Showing 500 of ${fmtNum(rows.length)} matching items</td></tr>`;
+  }
+}
+
+function itemsCountMessage(inventory, count, query) {
+  if (query) return 'NO STARTUP/SERVICE ITEMS MATCH THE FILTER';
+  if (count) return 'No items to show';
+  return inventory.partial ? 'NO ITEMS IN AVAILABLE SOURCES — COVERAGE IS PARTIAL' : 'NO STARTUP OR SERVICE ITEMS REPORTED';
+}
+
+async function loadPersistence() {
+  if (VIEWS.persistence.loading) return;
+  VIEWS.persistence.loading = true;
+  setBusy(true, 'STARTUP / SERVICE INVENTORY');
+  const result = await api('persist:list');
+  VIEWS.persistence.data = result || {
+    available: false, partial: true, complete: false, error: 'Startup/service inventory query failed',
+    sources: [], items: [], summary: { totalItems: 0, enabledItems: 0, runningItems: 0, riskItems: 0, riskItemsWithListeners: 0 },
+  };
+  VIEWS.persistence.loading = false;
+  if (state.route === 'persistence') navigate('persistence');
+  setBusy(false);
+}
+
 /* ---------------------------------------------------------- audit */
 
 VIEWS.audit = {
@@ -1511,7 +1704,7 @@ VIEWS.audit = {
         <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Security Audit</span><span class="sec-line"></span></div>
         <div class="card tick" style="max-width:720px">
           <div class="card-title">${icon('shield')} Local posture checks</div>
-          <p class="muted" style="font-size:12.5px;line-height:1.75">Checks firewall status, system-volume encryption, update status, recent error logs, process risk indicators, system disk pressure and externally bound listening endpoints. This is a heuristic check, not a vulnerability scan and not an antivirus.</p>
+          <p class="muted" style="font-size:12.5px;line-height:1.75">Checks firewall status, encryption, updates, recent errors, process risk, disk pressure, exposed listeners, listener correlation and startup/service persistence. Results are local heuristics, not a vulnerability scan or antivirus.</p>
           <div class="btn-row mt16"><button class="btn btn-primary" id="au-run">${icon('play')} Run Checks</button></div>
         </div>`;
     }
@@ -1548,8 +1741,8 @@ VIEWS.audit = {
 async function runAudit() {
   setBusy(true, 'AUDIT');
   const t0 = Date.now();
-  const [firewall, encryption, updates, errors, processes, disks, net] = await Promise.all([
-    api('fw:status'), api('enc:status'), api('updates:check'), api('errors:list'), api('proc:list'), api('disk:usage'), api('net:list'),
+  const [firewall, encryption, updates, errors, processes, disks, net, persistence] = await Promise.all([
+    api('fw:status'), api('enc:status'), api('updates:check'), api('errors:list'), api('proc:list'), api('disk:usage'), api('net:list'), api('persist:list'),
   ]);
   const processList = processes && processes.available === true && Array.isArray(processes.items) ? processes.items : null;
   const suspicious = (processList || []).filter((process) => process.suspicion >= 35);
@@ -1558,6 +1751,16 @@ async function runAudit() {
   const errorItems = errors && Array.isArray(errors.items) ? errors.items : [];
   const updatesAvailable = updates && Array.isArray(updates.items) ? updates.items : [];
   const exposed = net && net.available !== false && Array.isArray(net.exposed) ? net.exposed : null;
+  const rawCorrelation = net && net.correlation;
+  const correlation = isCorrelationAvailable(rawCorrelation)
+    ? rawCorrelation
+    : { available: false, reason: (rawCorrelation && rawCorrelation.reason) || 'Process-to-listener correlation unavailable', assessed: null, flagged: null, unattributed: null, items: [] };
+  const persistenceAvailable = isPersistenceAssessmentAvailable(persistence);
+  const persistenceCorrelationDetail = !persistenceAvailable
+    ? ''
+    : persistence.networkAvailable !== true
+      ? ' Listener correlation is unavailable.'
+      : ' ' + persistence.summary.riskItemsWithListeners + ' share a listener by PID and ' + (persistence.processAvailable === true ? persistence.summary.riskItemsWithListenerCandidates : 'unknown') + ' have an executable-path listener candidate.';
   const items = [
     {
       title: 'Firewall service and inbound policy',
@@ -1602,12 +1805,28 @@ async function runAudit() {
       detail: exposed == null ? 'Network endpoint exposure could not be assessed' : exposed.length + ' endpoint(s) bound beyond loopback; verify whether each is intentional',
       action: 'net', actionLabel: 'Inspect network',
     },
+    {
+      title: 'Cross-sensor listener risk correlation',
+      status: correlation.available !== true ? 'warn' : correlation.flagged > 0 || correlation.unattributed > 0 ? 'warn' : 'ok',
+      detail: correlation.available !== true
+        ? correlation.reason || 'Could not match non-loopback listeners to the process inventory'
+        : correlation.flagged + ' listener(s) matched process risk heuristics; ' + correlation.unattributed + ' listener(s) could not be attributed. Heuristic only, not a malware finding.',
+      action: 'net', actionLabel: 'Review network',
+    },
+    {
+      title: 'Startup and service persistence',
+      status: !persistenceAvailable ? 'warn' : persistence.summary.riskItems > 0 || persistence.partial ? 'warn' : 'ok',
+      detail: !persistenceAvailable
+        ? (persistence && persistence.error) || 'Startup/service sources are unavailable or the assessment is incomplete'
+        : (persistence.summary.riskItems || 0) + ' startup/service item(s) matched risk heuristics.' + persistenceCorrelationDetail + ' ' + (persistence.partial ? 'Coverage is partial; some sources or attribution snapshots were unavailable. ' : '') + 'Heuristic only, not a malware finding.',
+      action: 'persist', actionLabel: 'Review startup',
+    },
   ];
   VIEWS.audit.data = {
     items,
     at: new Date().toLocaleString(),
     ms: Date.now() - t0,
-    raw: { firewall, encryption, updates, errors, suspicious, processesAvailable: !!processList, disk, disks, net },
+    raw: { firewall, encryption, updates, errors, suspicious, processesAvailable: !!processList, correlation, persistence, disk, disks, net },
   };
   if (state.route === 'audit') navigate('audit');
   setBusy(false);
@@ -1619,6 +1838,7 @@ function auditAction(action) {
   if (action === 'proc') navigate('processes');
   if (action === 'disk') { filesState.result = null; navigate('files'); setTimeout(() => { const mode = $('#f-mode'); if (mode) mode.value = 'large'; }, 30); }
   if (action === 'net') navigate('network');
+  if (action === 'persist') navigate('persistence');
   if (action === 'err') {
     const entries = (((VIEWS.audit.data || {}).raw || {}).errors || {}).items || [];
     const html = entries.slice(0, 40).map((entry) => `<div class="list-row"><div class="lr-body"><div class="lr-title" style="font-family:var(--mono);font-size:10.5px">${esc(entry.time)} · ${esc(entry.source)}</div><div class="lr-sub">${esc(entry.message)}</div></div></div>`).join('');
@@ -1663,8 +1883,15 @@ async function exportReport() {
       processRiskSignals: raw.processesAvailable && Array.isArray(raw.suspicious) ? raw.suspicious.length : null,
       listeningEndpoints: raw.net && raw.net.available !== false && Array.isArray(raw.net.listening) ? raw.net.listening.length : null,
       externallyBoundEndpoints: raw.net && raw.net.available !== false && Array.isArray(raw.net.exposed) ? raw.net.exposed.length : null,
+      correlatedRiskListeners: raw.correlation && raw.correlation.available === true ? raw.correlation.flagged : null,
+      unattributedListeners: raw.correlation && raw.correlation.available === true ? raw.correlation.unattributed : null,
+      startupItems: isPersistenceAssessmentAvailable(raw.persistence) ? raw.persistence.summary.totalItems : null,
+      riskStartupItems: isPersistenceAssessmentAvailable(raw.persistence) ? raw.persistence.summary.riskItems : null,
+      riskStartupItemsWithListeners: isPersistenceAssessmentAvailable(raw.persistence) && raw.persistence.networkAvailable === true ? raw.persistence.summary.riskItemsWithListeners : null,
+      riskStartupItemsWithListenerCandidates: isPersistenceAssessmentAvailable(raw.persistence) && raw.persistence.processAvailable === true && raw.persistence.networkAvailable === true ? raw.persistence.summary.riskItemsWithListenerCandidates : null,
+      startupInventoryPartial: isPersistenceAssessmentAvailable(raw.persistence) ? !!raw.persistence.partial : null,
     },
-    privacyNote: 'This summary omits hostname, username, file paths, process names, remote IP addresses, and raw log messages.',
+    privacyNote: 'This summary omits hostname, username, file paths, process names, service/startup names and commands, remote IP addresses, and raw log messages.',
   };
   setBusy(true, 'EXPORTING');
   const result = await api('report:save', report);

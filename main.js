@@ -193,7 +193,8 @@ register('apps:uninstall', async (payload) => {
   if (result.ok) appCatalog.delete(id);
   return result;
 });
-register('net:list', () => scanner.getNetwork());
+register('net:list', () => scanner.getNetworkAssessment());
+register('persist:list', () => scanner.getPersistenceAssessment());
 register('fw:status', () => scanner.getFirewall());
 register('fw:enable', async () => {
   const confirmed = await confirmNative('Enable firewall', 'This changes system network filtering and may affect connectivity. Continue?', 'Enable firewall');
@@ -214,6 +215,7 @@ register('dialog:pickDir', async () => {
 const REPORT_CHECK_TITLES = new Set([
   'Firewall service and inbound policy', 'System-volume encryption', 'Operating-system updates',
   'System error log (24h)', 'Process risk indicators', 'System disk space', 'Non-loopback listening endpoints',
+  'Cross-sensor listener risk correlation', 'Startup and service persistence',
 ]);
 const boundedNumber = (value, max) => value == null || value === '' ? null : Number.isFinite(Number(value)) && Number(value) >= 0 ? Math.min(Math.floor(Number(value)), max) : null;
 function makeReportSummary(input) {
@@ -221,7 +223,7 @@ function makeReportSummary(input) {
   const posture = input.posture && typeof input.posture === 'object' ? input.posture : {};
   const counts = input.counts && typeof input.counts === 'object' ? input.counts : {};
   const grades = new Set(['S', 'A', 'B', 'C', 'D']);
-  const checks = Array.isArray(input.checks) ? input.checks.slice(0, 7).flatMap((item) => {
+  const checks = Array.isArray(input.checks) ? input.checks.slice(0, 9).flatMap((item) => {
     if (!item || !REPORT_CHECK_TITLES.has(item.title) || !['ok', 'warn', 'crit'].includes(item.status)) return [];
     return [{ title: item.title, status: item.status }];
   }) : [];
@@ -248,8 +250,15 @@ function makeReportSummary(input) {
       processRiskSignals: boundedNumber(counts.processRiskSignals, 10000000),
       listeningEndpoints: boundedNumber(counts.listeningEndpoints, 10000000),
       externallyBoundEndpoints: boundedNumber(counts.externallyBoundEndpoints, 10000000),
+      correlatedRiskListeners: boundedNumber(counts.correlatedRiskListeners, 10000000),
+      unattributedListeners: boundedNumber(counts.unattributedListeners, 10000000),
+      startupItems: boundedNumber(counts.startupItems, 10000000),
+      riskStartupItems: boundedNumber(counts.riskStartupItems, 10000000),
+      riskStartupItemsWithListeners: boundedNumber(counts.riskStartupItemsWithListeners, 10000000),
+      riskStartupItemsWithListenerCandidates: boundedNumber(counts.riskStartupItemsWithListenerCandidates, 10000000),
+      startupInventoryPartial: counts.startupInventoryPartial === true ? true : counts.startupInventoryPartial === false ? false : null,
     },
-    privacyNote: 'This summary omits hostname, username, file paths, process names, remote IP addresses, and raw log messages.',
+    privacyNote: 'This summary omits hostname, username, file paths, process names, service/startup names and commands, remote IP addresses, and raw log messages.',
   };
 }
 register('report:save', async (report) => {
