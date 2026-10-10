@@ -37,13 +37,41 @@ const timeAgo = (iso) => {
   return Math.floor(s / 86400) + 'd ago';
 };
 
+const API_METHODS = {
+  'sys:info': () => IPC.getSystemInfo(),
+  'disk:usage': () => IPC.getDiskUsage(),
+  'scan:quick': () => IPC.quickScan(),
+  'scan:files': (payload) => IPC.scanFiles(payload),
+  'files:clean': (payload) => IPC.cleanFiles(payload),
+  'proc:list': () => IPC.listProcesses(),
+  'proc:kill': (payload) => IPC.killProcess(payload),
+  'apps:list': () => IPC.listApps(),
+  'apps:uninstall': (payload) => IPC.uninstallApp(payload),
+  'net:list': () => IPC.getNetwork(),
+  'fw:status': () => IPC.getFirewall(),
+  'fw:enable': () => IPC.enableFirewall(),
+  'enc:status': () => IPC.getEncryption(),
+  'updates:check': () => IPC.checkUpdates(),
+  'updates:install': () => IPC.installUpdates(),
+  'errors:list': () => IPC.getSystemErrors(),
+  'dialog:pickDir': () => IPC.pickDirectory(),
+  'report:save': (payload) => IPC.saveReport(payload),
+};
+
 async function api(channel, payload) {
-  const res = await IPC.invoke(channel, payload);
-  if (!res || res.ok === false) {
-    toast((res && res.error) || 'Operation failed', 'error');
+  const method = API_METHODS[channel];
+  if (!method) { toast('Unsupported application operation', 'error'); return null; }
+  try {
+    const res = await method(payload);
+    if (!res || res.ok === false) {
+      toast((res && res.error) || 'Operation failed', 'error');
+      return null;
+    }
+    return res.data;
+  } catch (err) {
+    toast(String(err && err.message || err || 'Operation failed'), 'error');
     return null;
   }
-  return res.data;
 }
 
 /* ------------------------------------------------------------ icons */
@@ -55,8 +83,6 @@ const ICONS = {
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.6 3.2 14.4 0 18M12 3c-3.2 3.6-3.2 14.4 0 18"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/>',
-  star: '<path d="M12 3l2.7 5.8 6.3.8-4.6 4.3 1.2 6.1L12 17l-5.6 3 1.2-6.1L3 9.6l6.3-.8z"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   min: '<path d="M5 12h14"/>',
   max: '<path d="M5 5h14v14H5z"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
@@ -89,14 +115,12 @@ const LOGO = `<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-
 /* ------------------------------------------------------------ state */
 const state = {
   route: null,
-  license: { tier: 'free', key: null, since: null },
   sys: null,
   scan: null,
+  scanError: '',
   version: '1.0.0',
 };
-const FREE_ROW_LIMIT = 8;
 let activeTimers = [];
-const isPro = () => state.license && state.license.tier === 'pro';
 
 /* ------------------------------------------------------------ toast / modal */
 function toast(msg, type = 'info') {
@@ -115,59 +139,6 @@ function openModal(html, wide = false) {
 }
 function closeModal() { $('#modal-root').innerHTML = ''; }
 
-function confirmDialog(title, msg, danger, onYes) {
-  openModal(`
-    <div class="modal-head"><h3>${esc(title)}</h3><button class="modal-x" id="m-x">${icon('x')}</button></div>
-    <p style="color:var(--dim);font-size:13px;line-height:1.7">${esc(msg)}</p>
-    <div class="btn-row mt24">
-      <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="m-ok">${danger ? 'CONFIRM' : 'CONTINUE'}</button>
-      <button class="btn" id="m-cancel">CANCEL</button>
-    </div>`);
-  $('#m-x').onclick = closeModal;
-  $('#m-cancel').onclick = closeModal;
-  $('#m-ok').onclick = () => { closeModal(); onYes(); };
-}
-
-/* ------------------------------------------------------------ gating */
-function gate(feature, fn) {
-  if (isPro()) return fn();
-  openProModal(feature);
-}
-
-function openProModal(feature) {
-  openModal(`
-    <div class="modal-head"><h3>AEGIS <em>PRO</em></h3><button class="modal-x" id="m-x">${icon('x')}</button></div>
-    <div style="display:flex;gap:14px;align-items:flex-start">
-      <div style="color:var(--amber)">${icon('lock')}</div>
-      <div>
-        <p style="font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt)">"${esc(feature)}" is a PRO feature</p>
-        <p style="color:var(--dim);font-size:12px;line-height:1.7;margin-top:8px">
-          The free edition shows a limited preview. Upgrade to AEGIS PRO to unlock unlimited scans,
-          one-click cleaning, application removal, auto-fixes, update installation and full reports.
-        </p>
-      </div>
-    </div>
-    <div class="tag-row mt16">
-      <span class="chip">${icon('zap')} Unlimited scans</span>
-      <span class="chip">${icon('trash')} Auto-clean</span>
-      <span class="chip">${icon('shield')} Real-time shield</span>
-      <span class="chip">${icon('star')} Priority support</span>
-    </div>
-    <div class="btn-row mt24">
-      <button class="btn btn-primary" id="m-upgrade">VIEW PLANS — FROM $29.99</button>
-      <button class="btn" id="m-key">I HAVE A KEY</button>
-    </div>`, true);
-  $('#m-x').onclick = closeModal;
-  $('#m-upgrade').onclick = () => { closeModal(); navigate('pro'); };
-  $('#m-key').onclick = () => { closeModal(); navigate('pro'); setTimeout(() => { const k = $('#key-input'); if (k) k.focus(); }, 50); };
-}
-
-function lockedRow(colspan, label) {
-  return `<tr class="locked-row"><td colspan="${colspan}">
-    <div class="locked-box">${icon('lock')}<span>${esc(label)}</span>
-    <button class="btn btn-primary btn-sm" data-unlock>UNLOCK PRO</button></div></td></tr>`;
-}
-
 /* ------------------------------------------------------------ statusbar */
 function setBusy(busy, label) {
   const el = $('#sb-status');
@@ -185,7 +156,7 @@ const VIEWS = {};
 function gaugeHtml(score) {
   const segs = 25;
   const lit = Math.round((score / 100) * segs);
-  const color = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--amber)' : 'var(--red)';
+  const color = score >= 85 ? 'var(--green)' : score >= 70 ? 'var(--amber)' : 'var(--red)';
   let s = `<div class="gauge" style="color:${color}">`;
   for (let i = 0; i < segs; i++) s += `<i class="${i < lit ? 'on' : ''}"></i>`;
   return s + '</div>';
@@ -195,6 +166,13 @@ VIEWS.dashboard = {
   label: 'Dashboard',
   render() {
     if (!state.scan) {
+      if (state.scanError) return `
+        <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">System Overview</span><span class="sec-line"></span><span class="sec-idx">SCAN UNAVAILABLE</span></div>
+        <div class="card tick" style="max-width:720px">
+          <div class="card-title">${icon('warn')} Initial scan could not be completed</div>
+          <p class="muted" style="font-size:12px;line-height:1.7">${esc(state.scanError)}</p>
+          <div class="btn-row mt16"><button class="btn btn-primary" id="dash-retry">${icon('refresh')} Retry scan</button></div>
+        </div>`;
       return `
         <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">System Overview</span><span class="sec-line"></span><span class="sec-idx">INITIAL SCAN</span></div>
         <div class="grid-2">
@@ -213,24 +191,31 @@ VIEWS.dashboard = {
     const d = state.scan;
     const s = d.system;
     const sc = d.score;
-    const color = sc.score >= 75 ? 'var(--green)' : sc.score >= 50 ? 'var(--amber)' : 'var(--red)';
-    const cpuPct = clampPct(d.processes.reduce((a, p) => a + (p.cpu || 0), 0));
-    const ramPct = s.totalRam ? clampPct((1 - s.freeRam / s.totalRam) * 100) : 0;
-    const disk = (d.disks || [])[0] || {};
+    const color = sc.score >= 85 ? 'var(--green)' : sc.score >= 70 ? 'var(--amber)' : 'var(--red)';
+    const processAvailable = d.processesAvailable !== false;
+    const processList = Array.isArray(d.processes) ? d.processes : [];
+    const suspicious = Array.isArray(d.suspicious) ? d.suspicious : [];
+    const cpuPct = clampPct(processList.reduce((a, p) => a + (p.cpu || 0), 0));
+    const ramPct = s.totalRam ? clampPct((1 - s.freeRam / s.totalRam) * 100) : null;
+    const disk = d.systemDisk || (d.disks || []).find((item) => item.isSystem) || (d.disks || []).find((item) => item.mount === '/') || {};
     const diskPct = disk.size ? clampPct((disk.used / disk.size) * 100) : 0;
-    const updCount = (d.updates.items || []).length;
-    const errCount = (d.errors.items || []).length;
+    const updCount = (d.updates && Array.isArray(d.updates.items)) ? d.updates.items.length : null;
+    const errCount = (d.errors && Array.isArray(d.errors.items)) ? d.errors.items.length : null;
+    const networkAvailable = !!(d.networkSummary && d.networkSummary.available !== false && Number.isFinite(d.networkSummary.exposed));
+    const junkAvailable = !!(d.junk && d.junk.available !== false);
 
     const statCard = (label, value, sub, pct, cls) => `
       <div class="card stat ${cls || ''}">
-        <div class="stat-label">${label}</div>
+        <div class="stat-label">${esc(label)}</div>
         <div class="stat-value">${value}</div>
-        <div class="stat-sub">${sub}</div>
-        <div class="stat-bar"><i style="width:${pct}%"></i></div>
+        <div class="stat-sub">${esc(sub)}</div>
+        <div class="stat-bar"><i style="width:${clampPct(pct)}%"></i></div>
       </div>`;
 
-    const suspRows = d.suspicious.length
-      ? d.suspicious.slice(0, 6).map((p) => `
+    const suspRows = !processAvailable
+      ? `<div class="empty">${icon('info')}<p>Process inventory unavailable</p></div>`
+      : suspicious.length
+      ? suspicious.slice(0, 6).map((p) => `
           <div class="list-row">
             ${icon(p.suspicionLevel === 'critical' ? 'x' : 'warn', 'sev-ic ' + (p.suspicionLevel === 'critical' ? 'crit' : p.suspicionLevel === 'high' ? 'high' : 'med'))}
             <div class="lr-body">
@@ -253,17 +238,17 @@ VIEWS.dashboard = {
       <div class="tag-row" style="margin-top:14px">
         <span class="badge ${d.firewall.enabled === true ? 'ok' : d.firewall.enabled === false ? 'crit' : 'neutral'}"><span class="dot"></span>FIREWALL ${d.firewall.enabled === true ? 'ON' : d.firewall.enabled === false ? 'OFF' : '?'}</span>
         <span class="badge ${d.encryption.enabled === true ? 'ok' : d.encryption.enabled === false ? 'warn' : 'neutral'}"><span class="dot"></span>ENCRYPTION ${d.encryption.enabled === true ? 'ON' : d.encryption.enabled === false ? 'OFF' : '?'}</span>
-        <span class="badge ${updCount === 0 ? 'ok' : 'warn'}"><span class="dot"></span>UPDATES ${updCount === 0 ? 'CURRENT' : updCount + ' PENDING'}</span>
-        <span class="badge ${errCount === 0 ? 'ok' : 'warn'}"><span class="dot"></span>ERRORS 24H ${errCount}</span>
-        <span class="badge ${d.suspicious.length === 0 ? 'ok' : 'crit'}"><span class="dot"></span>THREATS ${d.suspicious.length}</span>
+        <span class="badge ${d.updates && d.updates.checkStatus === 'ok' ? (updCount === 0 ? 'ok' : 'warn') : 'neutral'}"><span class="dot"></span>UPDATES ${!d.updates || d.updates.checkStatus !== 'ok' ? 'UNKNOWN' : updCount === 0 ? 'NO PENDING' : updCount + ' PENDING'}</span>
+        <span class="badge ${d.errors && d.errors.available ? (errCount === 0 ? 'ok' : 'warn') : 'neutral'}"><span class="dot"></span>ERRORS 24H ${d.errors && d.errors.available ? errCount : 'UNKNOWN'}</span>
+        <span class="badge ${!processAvailable ? 'neutral' : suspicious.length === 0 ? 'ok' : 'warn'}"><span class="dot"></span>RISK SIGNALS ${processAvailable ? suspicious.length : 'UNKNOWN'}</span>
       </div>`;
 
     const tickerItems = [
       ...sc.findings.map((f) => `<span class="${f.sev === 'critical' ? 'crit' : ''}"><b>${f.sev.toUpperCase()}</b> ${esc(f.msg)}</span>`),
-      ...d.suspicious.slice(0, 5).map((p) => `<span class="crit"><b>THREAT</b> ${esc(p.name)} — ${esc(p.flags[0] || 'anomaly')}</span>`),
-      `<span><b>SCAN</b> ${fmtNum(d.junk.scanned)} files analysed · ${fmtBytes(d.junk.reclaimable)} reclaimable</span>`,
-      `<span><b>NET</b> ${d.networkSummary ? d.networkSummary.connections + ' connections · ' + d.networkSummary.listening + ' listening' : 'n/a'}</span>`,
-      `<span class="ok"><b>ENGINE</b> ${d.processes.length} processes profiled in ${(d.durationMs / 1000).toFixed(1)}s</span>`,
+      ...suspicious.slice(0, 5).map((p) => `<span class="crit"><b>RISK SIGNAL</b> ${esc(p.name)} — ${esc(p.flags[0] || 'anomaly')}</span>`),
+      `<span><b>SCAN</b> ${junkAvailable ? fmtNum(d.junk.scanned) + ' files inspected · ' + fmtBytes(d.junk.reclaimable) + (d.junk.incomplete ? ' observed in partial coverage' : ' old cleanup candidates') : 'cleanup-folder coverage unavailable'}</span>`,
+      `<span><b>NET</b> ${networkAvailable ? d.networkSummary.connections + ' connections · ' + d.networkSummary.exposed + ' non-loopback listeners' : 'endpoint exposure unknown'}</span>`,
+      processAvailable ? `<span class="ok"><b>ENGINE</b> ${processList.length} processes profiled in ${(d.durationMs / 1000).toFixed(1)}s</span>` : `<span><b>ENGINE</b> process inventory unavailable</span>`,
     ];
     const tickerTrack = (tickerItems.concat(tickerItems)).map((t) => `<span>${t}</span>`).join('');
 
@@ -281,21 +266,22 @@ VIEWS.dashboard = {
             ${gaugeHtml(sc.score)}
             <div class="gauge-legend"><span>0</span><span>50</span><span>100</span></div>
             ${chips}
+            <div class="muted mono" style="font-size:10px;margin-top:10px">${esc(sc.disclaimer || 'Heuristic indicator only; not an antivirus or a guarantee of security.')}</div>
           </div>
         </div>
       </div>
 
       <div class="grid-4 mt16">
-        ${statCard('CPU Load', cpuPct + '<small>%</small>', s.cpuModel.slice(0, 42), cpuPct, cpuPct >= 85 ? 'crit' : cpuPct >= 60 ? 'warn' : '')}
-        ${statCard('Memory', ramPct + '<small>%</small>', fmtBytes(s.totalRam) + ' total · ' + s.cpus + ' cores', ramPct, ramPct >= 92 ? 'crit' : ramPct >= 75 ? 'warn' : '')}
-        ${statCard('System Disk', diskPct + '<small>%</small>', disk.mount || '—', diskPct, diskPct >= 92 ? 'crit' : diskPct >= 80 ? 'warn' : 'ok')}
-        ${statCard('Network', (d.networkSummary ? d.networkSummary.listening : 0) + '<small> ports</small>', d.networkSummary ? d.networkSummary.connections + ' active connections' : 'no data', d.networkSummary ? clampPct((d.networkSummary.listening / 40) * 100) : 0, '')}
+        ${statCard('Process CPU', (processAvailable ? cpuPct : '—') + (processAvailable ? '<small>%</small>' : ''), processAvailable ? (s.cpuModel || 'Unknown CPU').slice(0, 42) : 'process data unavailable', processAvailable ? cpuPct : 0, processAvailable && cpuPct >= 85 ? 'crit' : processAvailable && cpuPct >= 60 ? 'warn' : '')}
+        ${statCard('Memory', ramPct == null ? '—' : ramPct + '<small>%</small>', s.totalRam ? fmtBytes(s.totalRam) + ' total · ' + s.cpus + ' cores' : 'usage unavailable', ramPct || 0, ramPct == null ? '' : ramPct >= 92 ? 'crit' : ramPct >= 75 ? 'warn' : '')}
+        ${statCard('System Disk', (disk.size ? diskPct : '—') + (disk.size ? '<small>%</small>' : ''), disk.size ? (disk.mount || 'system volume') : 'usage unavailable', disk.size ? diskPct : 0, disk.size ? (diskPct >= 92 ? 'crit' : diskPct >= 80 ? 'warn' : 'ok') : '')}
+        ${statCard('Network', (networkAvailable ? d.networkSummary.exposed : '—') + '<small> endpoints</small>', networkAvailable ? d.networkSummary.connections + ' active connections' : 'exposure status unavailable', networkAvailable ? clampPct((d.networkSummary.exposed / 20) * 100) : 0, '')}
       </div>
 
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Threat Monitor</span><span class="sec-line"></span><span class="sec-idx">REALTIME PROFILES</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Process Risk Indicators</span><span class="sec-line"></span><span class="sec-idx">HEURISTIC SNAPSHOT</span></div>
       <div class="grid-2">
         <div class="card">
-          <div class="card-title">${icon('warn')} Suspicious Processes</div>
+          <div class="card-title">${icon('warn')} Process risk signals</div>
           ${suspRows}
         </div>
         <div class="card">
@@ -307,7 +293,7 @@ VIEWS.dashboard = {
       <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Quick Actions</span><span class="sec-line"></span></div>
       <div class="btn-row">
         <button class="btn btn-primary" data-act="rescan">${icon('refresh')} Run Full Scan</button>
-        <button class="btn" data-act="junk">${icon('trash')} Clean Junk Files</button>
+        <button class="btn" data-act="junk">${icon('trash')} Review old cleanup candidates</button>
         <button class="btn" data-act="procs">${icon('chip')} Review Processes</button>
         <button class="btn" data-act="upd">${icon('download')} Check Updates</button>
         <button class="btn" data-act="audit">${icon('shield')} Security Audit</button>
@@ -316,11 +302,13 @@ VIEWS.dashboard = {
       <div class="ticker mt24"><span class="ticker-label">LIVE FEED</span><div class="ticker-track">${tickerTrack}</div></div>`;
   },
   init() {
-    if (!state.scan) startQuickScan();
+    const retry = $('#dash-retry');
+    if (retry) retry.addEventListener('click', startQuickScan);
+    if (!state.scan && !state.scanError) startQuickScan();
     $$('[data-act]').forEach((b) => b.addEventListener('click', () => {
       const act = b.dataset.act;
       if (act === 'rescan') startQuickScan();
-      if (act === 'junk') gate('Junk cleaning', () => navigate('files', { autoJunk: true }));
+      if (act === 'junk') navigate('files', { autoJunk: true });
       if (act === 'procs') navigate('processes');
       if (act === 'upd') navigate('updates');
       if (act === 'audit') navigate('audit');
@@ -332,6 +320,7 @@ const scanState = { running: false };
 async function startQuickScan() {
   if (scanState.running) return; // re-entrancy guard: init -> startQuickScan -> navigate -> init
   scanState.running = true;
+  state.scanError = '';
   setBusy(true, 'SCANNING');
   navigate('dashboard'); // shows loading view
   const c = $('#scan-console');
@@ -356,12 +345,16 @@ async function startQuickScan() {
   log('> sweeping temp, cache & log storage');
   const res = await api('scan:quick');
   if (res) {
-    log('> computing health score ...', 'cy');
+    log('> computing heuristic posture indicator ...', 'cy');
     state.scan = res;
+    state.scanError = '';
     state.sys = res.system;
     state.scanAt = new Date().toISOString();
     setLastScan('LAST SCAN ' + new Date().toLocaleTimeString());
     log('> scan complete in ' + (res.durationMs / 1000).toFixed(1) + 's — health ' + res.score.score + '/100 (grade ' + res.score.grade + ')', 'ok');
+    navigate('dashboard');
+  } else {
+    state.scanError = 'The system scan did not return usable data. Check permissions and OS command availability, then retry.';
     navigate('dashboard');
   }
   scanState.running = false;
@@ -370,7 +363,7 @@ async function startQuickScan() {
 
 /* ---------------------------------------------------------- files */
 
-const filesState = { result: null, busy: false };
+const filesState = { result: null, busy: false, autoJunk: false };
 
 VIEWS.files = {
   label: 'File Scanner',
@@ -378,47 +371,48 @@ VIEWS.files = {
     const r = filesState.result;
     let results = '';
     if (r) {
-      const free = !isPro();
-      const rows = r.results.slice(0, free ? FREE_ROW_LIMIT : r.results.length);
+      const rows = r.results || [];
       const dup = r.mode === 'duplicates';
+      const cleanable = r.mode === 'junk' && r.available !== false && !!r.scanToken;
+      const reclaimLabel = dup ? 'Potential duplicate space' : r.mode === 'junk' ? 'Old candidates (review first)' : 'Removal estimate';
       results = `
         <div class="tag-row mt16">
-          <span class="chip">${icon('file')} <b>${fmtNum(r.scanned)}</b> files scanned</span>
-          <span class="chip">${icon('hdd')} <b>${fmtBytes(r.bytes)}</b> read</span>
-          <span class="chip">${icon('search')} <b>${r.count}</b> ${dup ? 'duplicate groups' : 'items found'}</span>
-          <span class="chip">${icon('trash')} <b>${fmtBytes(r.reclaimable)}</b> reclaimable</span>
-          ${r.truncated ? '<span class="badge warn"><span class="dot"></span>TRUNCATED — NARROW THE SCOPE</span>' : ''}
+          <span class="chip">${icon('file')} <b>${r.available === false ? '—' : fmtNum(r.scanned)}</b> files scanned</span>
+          <span class="chip">${icon('hdd')} <b>${r.available === false ? '—' : fmtBytes(r.bytes)}</b> read</span>
+          <span class="chip">${icon('search')} <b>${r.available === false ? '—' : r.count}</b> ${dup ? 'duplicate groups' : 'items found'}</span>
+          <span class="chip">${icon('trash')} <b>${r.available === false || r.mode === 'large' ? '—' : fmtBytes(r.reclaimable)}</b> ${esc(reclaimLabel)}</span>
+          ${r.mode === 'junk' ? '<span class="badge info"><span class="dot"></span>FILES MUST BE AT LEAST 24 HOURS OLD</span>' : ''}
+          ${r.available === false ? `<span class="badge neutral"><span class="dot"></span>SCAN UNAVAILABLE · ${esc(r.error || 'NO ACCESSIBLE FOLDERS')}</span>` : r.incomplete ? `<span class="badge warn"><span class="dot"></span>PARTIAL COVERAGE${r.truncated ? ' · SCAN LIMIT REACHED' : ''}${r.skipped ? ' · ' + fmtNum(r.skipped) + ' PATH(S) SKIPPED' : ''}</span>` : ''}
           <span class="chip">${icon('clock')} ${(r.durationMs / 1000).toFixed(1)}s</span>
         </div>
         <div class="table-wrap mt16">
           <table class="data">
             <thead><tr>
-              ${isPro() ? '<th style="width:34px"><input type="checkbox" id="sel-all"></th>' : ''}
-              <th>${dup ? 'Group' : 'Path'}</th><th>Type</th><th class="right">Size</th>${dup ? '<th class="right">Wasted</th><th class="right">Copies</th>' : ''}
+              ${cleanable ? '<th style="width:34px"><input type="checkbox" id="sel-all" aria-label="Select all cleanup candidates"></th>' : ''}
+              <th>${dup ? 'Duplicate group' : 'Path'}</th><th>Type</th><th class="right">Size</th>${dup ? '<th class="right">Potentially redundant</th><th class="right">Copies</th>' : ''}
             </tr></thead>
             <tbody>
-              ${rows.map((x, i) => dup
+              ${rows.map((x) => dup
                 ? `<tr>
-                     <td class="cell-main">${esc(x.files[0])}<span class="cell-sub">+ ${x.files.length - 1} more location(s)</span></td>
+                     <td class="cell-main">${esc(x.files[0] || '')}<span class="cell-sub">${x.files.slice(1).map((file) => esc(file)).join('<br>')}${x.omitted ? '<br>… and ' + fmtNum(x.omitted) + ' more path(s) not shown' : ''}</span></td>
                      <td class="dim">${esc(x.kind)}</td>
                      <td class="right mono">${fmtBytes(x.size)}</td>
                      <td class="right mono" style="color:var(--amber)">${fmtBytes(x.wasted)}</td>
                      <td class="right mono">${x.count}</td>
                    </tr>`
                 : `<tr>
-                     ${isPro() ? `<td><input type="checkbox" class="sel" data-path="${esc(x.path)}"></td>` : ''}
+                     ${cleanable ? `<td><input type="checkbox" class="sel" data-path="${esc(x.path)}" aria-label="Select ${esc(x.path)}"></td>` : ''}
                      <td class="path-cell" title="${esc(x.path)}">${esc(x.path)}</td>
                      <td class="dim">${esc(x.kind)}</td>
                      <td class="right mono">${fmtBytes(x.size)}</td>
-                   </tr>`).join('')}
-              ${free ? lockedRow(dup ? 5 : 3, `${r.count - FREE_ROW_LIMIT} more result(s) hidden — unlock AEGIS PRO for the full list`) : ''}
+                   </tr>`).join('') || `<tr><td colspan="${cleanable ? 4 : dup ? 5 : 3}" class="dim" style="text-align:center;padding:24px">${r.available === false ? 'SCAN UNAVAILABLE — ' + esc(r.error || 'NO ACCESSIBLE FOLDERS') : r.incomplete ? 'NO CANDIDATES FOUND IN THE SCANNED LOCATIONS; COVERAGE IS PARTIAL' : 'NO CANDIDATES FOUND'}</td></tr>`}
             </tbody>
           </table>
         </div>
-        ${isPro() && !dup ? `
+        ${cleanable ? `
         <div class="btn-row mt16">
-          <button class="btn btn-danger" id="btn-clean" disabled>${icon('trash')} Delete Selected</button>
-          <span class="muted" style="font-family:var(--mono);font-size:10px;align-self:center">DELETES ARE PERMANENT — REVIEW SELECTION FIRST</span>
+          <button class="btn btn-danger" id="btn-clean" disabled>${icon('trash')} Move Selected to Trash</button>
+          <span class="muted mono" style="font-size:10px;align-self:center">OLD TEMP/CACHE CANDIDATES ONLY · 200 FILES PER ACTION · NATIVE CONFIRMATION REQUIRED</span>
         </div>` : ''}`;
     }
     return `
@@ -427,7 +421,7 @@ VIEWS.files = {
         <div class="grid-4" style="gap:14px">
           <div class="field"><label>Scan Mode</label>
             <select class="input" id="f-mode">
-              <option value="junk">Junk &amp; temp files</option>
+              <option value="junk">Old junk &amp; temporary files</option>
               <option value="large">Large files</option>
               <option value="duplicates">Duplicate files</option>
             </select></div>
@@ -437,13 +431,14 @@ VIEWS.files = {
               <button class="btn" id="f-browse">${icon('folder')} Browse</button>
             </div></div>
           <div class="field"><label>Min Size (MB) — large mode</label>
-            <input class="input" id="f-size" type="number" value="100" min="1" /></div>
+            <input class="input" id="f-size" type="number" value="100" min="1" max="10485760" /></div>
           <div class="field"><label>&nbsp;</label>
             <button class="btn btn-primary" id="f-scan" style="width:100%;justify-content:center">${icon('play')} Start Scan</button></div>
         </div>
+        <div class="muted" style="font-size:11px;margin-top:12px">Cleanup candidates are at least 24 hours old and are moved to the system Trash. Large files and duplicates are informational only.</div>
         <div id="f-progress" style="display:none;margin-top:16px">
           <div class="progress"><i></i></div>
-          <div class="muted mono" style="font-size:10px;margin-top:8px" id="f-status">Sweeping filesystem…</div>
+          <div class="muted mono" style="font-size:10px;margin-top:8px" id="f-status">Scanning selected folder…</div>
         </div>
       </div>
       ${results}`;
@@ -456,15 +451,16 @@ VIEWS.files = {
     $('#f-scan').addEventListener('click', runFilesScan);
     const selAll = $('#sel-all');
     if (selAll) selAll.addEventListener('change', () => {
-      $$('.sel').forEach((c) => { c.checked = selAll.checked; });
-      $('#btn-clean').disabled = !selAll.checked;
+      $$('.sel').forEach((checkbox) => { checkbox.checked = selAll.checked; });
+      const clean = $('#btn-clean');
+      if (clean) clean.disabled = !selAll.checked;
     });
-    $$('.sel').forEach((c) => c.addEventListener('change', () => {
-      $('#btn-clean').disabled = !$$('.sel').some((x) => x.checked);
+    $$('.sel').forEach((checkbox) => checkbox.addEventListener('change', () => {
+      const clean = $('#btn-clean');
+      if (clean) clean.disabled = !$$('.sel').some((item) => item.checked);
     }));
     const clean = $('#btn-clean');
     if (clean) clean.addEventListener('click', cleanSelected);
-    $$('[data-unlock]').forEach((b) => b.addEventListener('click', () => openProModal('Full scan results')));
     if (filesState.autoJunk) { filesState.autoJunk = false; runFilesScan(); }
   },
 };
@@ -475,47 +471,57 @@ async function runFilesScan() {
   setBusy(true, 'FILE SCAN');
   $('#f-progress').style.display = 'block';
   $('#f-scan').disabled = true;
-  const statuses = ['Sweeping filesystem…', 'Hashing candidates…', 'Classifying artifacts…', 'Computing reclaimable space…'];
+  const statuses = ['Checking folder access…', 'Inspecting file metadata…', 'Hashing duplicate candidates…', 'Preparing safe results…'];
   let si = 0;
-  const timer = setInterval(() => { si = (si + 1) % statuses.length; $('#f-status').textContent = statuses[si]; }, 900);
+  const timer = setInterval(() => {
+    const label = $('#f-status');
+    if (label) { si = (si + 1) % statuses.length; label.textContent = statuses[si]; }
+  }, 900);
   activeTimers.push(timer);
   const mode = $('#f-mode').value;
+  const sizeMb = Number($('#f-size').value);
   const payload = {
     mode,
-    minSize: (parseInt($('#f-size').value, 10) || 100) * 1024 * 1024,
+    minSize: (Number.isFinite(sizeMb) && sizeMb > 0 ? Math.min(sizeMb, 10485760) : 100) * 1024 * 1024,
     roots: ($('#f-path').value || '').trim() ? [$('#f-path').value.trim()] : undefined,
   };
   const res = await api('scan:files', payload);
   clearInterval(timer);
   filesState.busy = false;
   setBusy(false);
-  $('#f-progress').style.display = 'none';
-  $('#f-scan').disabled = false;
+  const progress = $('#f-progress');
+  const scanButton = $('#f-scan');
+  if (progress) progress.style.display = 'none';
+  if (scanButton) scanButton.disabled = false;
   if (res) {
     filesState.result = res;
-    VIEWS.files.render && navigate('files');
-    toast(`Scan complete — ${res.count} item(s), ${fmtBytes(res.reclaimable)} reclaimable`, 'success');
+    navigate('files');
+    const message = res.available === false
+      ? 'File scan unavailable — no accessible scan folders'
+      : `Scan ${res.incomplete ? 'partially complete' : 'complete'} — ${res.count} item(s) found${res.skipped ? `; ${res.skipped} path(s) skipped` : ''}`;
+    toast(message, res.available === false || res.incomplete ? 'warn' : 'success');
   }
 }
 
-function cleanSelected() {
-  const paths = $$('.sel').filter((c) => c.checked).map((c) => c.dataset.path);
-  if (!paths.length) return;
-  confirmDialog('Delete files', `Permanently delete ${paths.length} selected file(s)? This cannot be undone.`, true, async () => {
-    setBusy(true, 'CLEANING');
-    const res = await api('files:clean', { paths });
-    setBusy(false);
-    if (res) {
-      toast(`Removed ${res.removed} file(s) — ${fmtBytes(res.bytes)} freed${res.failed ? ` (${res.failed} failed)` : ''}`, res.failed ? 'warn' : 'success');
-      filesState.result = null;
-      navigate('files');
-    }
-  });
+async function cleanSelected() {
+  const paths = $$('.sel').filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.dataset.path);
+  if (!paths.length || !filesState.result || !filesState.result.scanToken) return;
+  if (paths.length > 200) { toast('Move no more than 200 files at a time; narrow your selection and retry.', 'warn'); return; }
+  setBusy(true, 'MOVING TO TRASH');
+  const res = await api('files:clean', { scanToken: filesState.result.scanToken, paths });
+  setBusy(false);
+  if (res) {
+    if (res.cancelled) return;
+    if (res.ok === false) { toast(res.error || 'Could not move selected files', 'error'); return; }
+    toast(`Moved ${Number(res.removed) || 0} file(s) to Trash${res.failed ? `; ${res.failed} failed` : ''}`, res.failed ? 'warn' : 'success');
+    filesState.result = null;
+    navigate('files');
+  }
 }
 
 /* ---------------------------------------------------------- processes */
 
-const procState = { list: [], sortKey: 'suspicion', sortDir: -1, filter: '', auto: true };
+const procState = { list: [], available: null, error: '', loading: false, sortKey: 'suspicion', sortDir: -1, filter: '', auto: true };
 
 VIEWS.processes = {
   label: 'Processes',
@@ -535,7 +541,7 @@ VIEWS.processes = {
     const th = (key, label) =>
       `<th class="sortable" data-sort="${key}">${label}${procState.sortKey === key ? `<span class="sort-ic">${procState.sortDir === 1 ? '▲' : '▼'}</span>` : ''}</th>`;
     return `
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Process Monitor</span><span class="sec-line"></span><span class="sec-idx">LIVE PROFILES</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Process Monitor</span><span class="sec-line"></span><span class="sec-idx">HEURISTIC SNAPSHOT</span></div>
       <div class="toolbar">
         <span class="chip">${icon('chip')} <b>${procState.list.length}</b> processes</span>
         <span class="chip">${icon('warn')} <b>${susp}</b> flagged</span>
@@ -561,9 +567,9 @@ VIEWS.processes = {
                 <td class="mono">${fmtBytes(p.memBytes)}</td>
                 <td class="path-cell" title="${esc(p.path)}">${esc(p.path || '—')}</td>
                 <td>${badges}</td>
-                <td><button class="btn btn-sm btn-danger" data-kill="${p.pid}" ${p.pid <= 4 ? 'disabled' : ''}>${icon('power')}</button></td>
+                <td><button class="btn btn-sm btn-danger" data-kill="${p.pid}" ${p.canStop === false || p.pid <= 4 ? 'disabled title="Process is protected or cannot be stopped safely"' : ''}>${icon('power')}</button></td>
               </tr>`;
-            }).join('') || `<tr><td colspan="7" class="dim" style="text-align:center;padding:30px">NO PROCESSES LOADED — PRESS REFRESH</td></tr>`}
+            }).join('') || `<tr><td colspan="7" class="dim" style="text-align:center;padding:30px">${procState.available === false ? 'PROCESS INVENTORY UNAVAILABLE — ' + esc(procState.error || 'QUERY FAILED') : procState.available === true ? 'NO PROCESSES MATCH THE FILTER' : 'NO PROCESS DATA — PRESS REFRESH'}</td></tr>`}
           </tbody>
         </table>
       </div>`;
@@ -583,32 +589,36 @@ VIEWS.processes = {
     }));
     $$('[data-kill]').forEach((b) => b.addEventListener('click', () => killProcess(parseInt(b.dataset.kill, 10))));
     if (procState.auto) {
-      activeTimers.push(setInterval(() => { if (state.route === 'processes') loadProcesses(true); }, 4000));
+      activeTimers.push(setInterval(() => { if (state.route === 'processes' && procState.available !== false) loadProcesses(true); }, 5000));
     }
-    if (!procState.list.length) loadProcesses();
+    if (procState.available === null) loadProcesses();
   },
 };
 
 function renderRowsOnly() { navigate('processes'); }
 
 async function loadProcesses(silent = false) {
+  if (procState.loading) return;
+  procState.loading = true;
   if (!silent) setBusy(true, 'PROCESS SCAN');
-  const res = await api('proc:list');
-  if (res) {
-    procState.list = res;
+  try {
+    const res = await api('proc:list');
+    procState.available = !!(res && res.available === true && Array.isArray(res.items));
+    procState.list = procState.available ? res.items : [];
+    procState.error = procState.available ? '' : (res && res.error) || 'Process inventory unavailable';
     if (state.route === 'processes') navigate('processes');
+  } finally {
+    procState.loading = false;
+    if (!silent) setBusy(false);
   }
-  if (!silent) setBusy(false);
 }
 
-function killProcess(pid) {
-  confirmDialog('End process', `Force-stop process PID ${pid}? Unsaved data in that process will be lost.`, true, async () => {
-    setBusy(true, 'STOPPING PROCESS');
-    const res = await api('proc:kill', { pid });
-    setBusy(false);
-    if (res && res.ok) { toast(`Process ${pid} terminated`, 'success'); loadProcesses(); }
-    else if (res) toast(res.error || 'Could not stop process', 'error');
-  });
+async function killProcess(pid) {
+  setBusy(true, 'STOPPING PROCESS');
+  const res = await api('proc:kill', { pid });
+  setBusy(false);
+  if (res && res.ok) { toast(`Process ${pid} terminated`, 'success'); loadProcesses(); }
+  else if (res && res.error !== 'Cancelled') toast(res.error || 'Could not stop process', 'error');
 }
 
 /* ---------------------------------------------------------- apps */
@@ -619,7 +629,7 @@ VIEWS.apps = {
   label: 'Applications',
   render() {
     const q = appsState.filter.toLowerCase();
-    let rows = appsState.list.filter((a) => !q || a.name.toLowerCase().includes(q) || (a.publisher || '').toLowerCase().includes(q));
+    let rows = appsState.list.filter((a) => !q || String(a.name || '').toLowerCase().includes(q) || String(a.publisher || '').toLowerCase().includes(q));
     rows = [...rows].sort((a, b) => {
       const k = appsState.sortKey;
       const va = a[k] == null ? '' : a[k];
@@ -627,35 +637,35 @@ VIEWS.apps = {
       const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
       return cmp * appsState.sortDir;
     });
-    const flagged = appsState.list.filter((a) => a.flags.some((f) => f.sev === 'high')).length;
+    const flagged = appsState.list.filter((a) => (a.flags || []).some((f) => f.sev === 'high')).length;
     const th = (key, label) =>
       `<th class="sortable" data-sort="${key}">${label}${appsState.sortKey === key ? `<span class="sort-ic">${appsState.sortDir === 1 ? '▲' : '▼'}</span>` : ''}</th>`;
     return `
       <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Installed Applications</span><span class="sec-line"></span><span class="sec-idx">SOFTWARE INVENTORY</span></div>
       <div class="toolbar">
         <span class="chip">${icon('layers')} <b>${appsState.list.length}</b> applications</span>
-        <span class="chip">${icon('warn')} <b>${flagged}</b> flagged</span>
+        <span class="chip">${icon('warn')} <b>${flagged}</b> heuristic flags</span>
         <span class="spacer"></span>
         <input class="input" id="a-filter" placeholder="Filter applications…" value="${esc(appsState.filter)}" />
         <button class="btn" id="a-refresh">${icon('refresh')} Refresh</button>
       </div>
       <div class="table-wrap">
         <table class="data">
-          <thead><tr>${th('name', 'Application')}${th('publisher', 'Publisher')}${th('version', 'Version')}${th('size', 'Size')}${th('Flags')}<th></th></tr></thead>
+          <thead><tr>${th('name', 'Application')}${th('publisher', 'Publisher')}${th('version', 'Version')}${th('size', 'Size')}${th('Flags')}<th>Removal</th></tr></thead>
           <tbody>
-            ${rows.slice(0, 200).map((a) => `
+            ${rows.slice(0, 300).map((a) => `
               <tr>
                 <td class="cell-main">${esc(a.name)}</td>
                 <td class="dim">${esc(a.publisher || '—')}</td>
                 <td class="mono dim">${esc(a.version || '—')}</td>
                 <td class="mono">${a.size ? fmtBytes(a.size) : '—'}</td>
-                <td>${a.flags.length ? a.flags.map((f) => `<span class="badge ${f.sev === 'high' ? 'warn' : 'neutral'}" style="margin:1px">${esc(f.label)}</span>`).join(' ') : '<span class="badge ok"><span class="dot"></span>OK</span>'}</td>
-                <td><button class="btn btn-sm" data-uninstall="${esc(a.name)}">${icon('trash')} Remove</button></td>
-              </tr>`).join('') || `<tr><td colspan="6" class="dim" style="text-align:center;padding:30px">NO APPLICATIONS LOADED — PRESS REFRESH</td></tr>`}
+                <td>${a.flags && a.flags.length ? a.flags.map((f) => `<span class="badge ${f.sev === 'high' ? 'warn' : 'neutral'}" style="margin:1px">${esc(f.label)}</span>`).join(' ') : '<span class="badge ok"><span class="dot"></span>OK</span>'}</td>
+                <td><button class="btn btn-sm ${a.canUninstall ? 'btn-danger' : ''}" data-uninstall="${esc(a.id)}" ${a.canUninstall ? '' : 'disabled title="No safe removal method is available"'}>${icon('trash')} ${a.canUninstall ? 'Uninstall' : 'Unavailable'}</button></td>
+              </tr>`).join('') || `<tr><td colspan="6" class="dim" style="text-align:center;padding:30px">${appsState.list.length ? 'NO APPLICATIONS MATCH THE FILTER' : appsState.loaded ? 'NO APPLICATIONS REPORTED' : 'APPLICATION INVENTORY UNAVAILABLE — PRESS REFRESH'}</td></tr>`}
           </tbody>
         </table>
       </div>
-      <p class="muted mono mt16" style="font-size:10px;letter-spacing:.08em">REMOVAL IS A PRO FEATURE — FREE EDITION SHOWS THE FULL INVENTORY.</p>`;
+      <p class="muted mono mt16" style="font-size:10px;letter-spacing:.04em">Uninstall actions are confirmed by the operating system dialog; unsupported package types remain read-only.</p>`;
   },
   init() {
     $('#a-refresh').addEventListener('click', loadApps);
@@ -666,28 +676,36 @@ VIEWS.apps = {
       else { appsState.sortKey = k; appsState.sortDir = 1; }
       navigate('apps');
     }));
-    $$('[data-uninstall]').forEach((b) => b.addEventListener('click', () => {
-      const name = b.dataset.uninstall;
-      const app = appsState.list.find((a) => a.name === name);
-      gate('Application removal', () => {
-        confirmDialog('Remove application', `Uninstall "${name}"? The application and its files will be removed.`, true, async () => {
-          setBusy(true, 'UNINSTALLING');
-          const res = await api('apps:uninstall', { app });
-          setBusy(false);
-          if (res && res.ok) { toast(`"${name}" removed`, 'success'); loadApps(); }
-          else if (res) toast(res.error || 'Uninstall failed', 'error');
-        });
-      });
-    }));
-    if (!appsState.list.length) loadApps();
+    $$('[data-uninstall]').forEach((button) => button.addEventListener('click', () => uninstallApp(button.dataset.uninstall)));
+    if (!appsState.loaded) loadApps();
   },
 };
 
 async function loadApps() {
+  if (appsState.loading) return;
+  appsState.loading = true;
   setBusy(true, 'APP INVENTORY');
-  const res = await api('apps:list');
-  if (res) { appsState.list = res; if (state.route === 'apps') navigate('apps'); }
+  try {
+    const res = await api('apps:list');
+    if (Array.isArray(res)) {
+      appsState.list = res;
+      appsState.loaded = true;
+      if (state.route === 'apps') navigate('apps');
+    }
+  } finally {
+    appsState.loading = false;
+    setBusy(false);
+  }
+}
+
+async function uninstallApp(id) {
+  const app = appsState.list.find((item) => item.id === id);
+  if (!app || !app.canUninstall) return;
+  setBusy(true, 'UNINSTALLING');
+  const res = await api('apps:uninstall', { id });
   setBusy(false);
+  if (res && res.ok) { toast(`“${app.name}” removal completed`, 'success'); loadApps(); }
+  else if (res && res.error !== 'Cancelled') toast(res.error || 'Uninstall failed', 'error');
 }
 
 /* ---------------------------------------------------------- network */
@@ -703,38 +721,46 @@ VIEWS.network = {
           <span class="spinner"></span><span class="muted" style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600">Mapping network connections…</span>
         </div>`;
     }
-    const fw = n.firewall;
+    const fw = n.firewall || { enabled: null, verified: false, profiles: [], details: 'Status unavailable' };
+    const net = n.net || { connections: [], listening: [], exposed: [], available: false, error: 'Network status unavailable' };
+    const connections = Array.isArray(net.connections) ? net.connections : [];
+    const listening = Array.isArray(net.listening) ? net.listening : [];
+    const exposed = Array.isArray(net.exposed) ? net.exposed : [];
+    const networkAvailable = net.available !== false;
+    const fwVerified = fw.enabled === true && fw.verified === true;
     const fwBadge = fw.enabled === true
-      ? '<span class="badge ok"><span class="dot"></span>FIREWALL ACTIVE</span>'
+      ? `<span class="badge ${fwVerified ? 'ok' : 'warn'}"><span class="dot"></span>${fwVerified ? 'INBOUND POLICY VERIFIED' : 'ACTIVE · POLICY UNKNOWN'}</span>`
       : fw.enabled === false
-        ? '<span class="badge crit"><span class="dot"></span>FIREWALL DISABLED</span>'
+        ? '<span class="badge crit"><span class="dot"></span>NO ACTIVE FIREWALL</span>'
         : '<span class="badge neutral"><span class="dot"></span>STATUS UNKNOWN</span>';
-    const listenChips = n.net.listening.slice(0, 60).map((c) =>
+    const listenChips = listening.slice(0, 60).map((c) =>
       `<span class="chip" title="${esc(c.local)}">${icon('wifi')} <b>${esc((c.local || '').split(':').pop())}</b> ${esc(c.process || c.proto)}</span>`).join('');
     return `
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Network</span><span class="sec-line"></span><span class="sec-idx">CONNECTION MAPPING</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Network</span><span class="sec-line"></span><span class="sec-idx">LOCAL CONNECTION SNAPSHOT</span></div>
       <div class="grid-2">
         <div class="card tick">
           <div class="card-title">${icon('shield')} Firewall Status</div>
-          <div style="display:flex;align-items:center;gap:16px">
-            <div style="font-size:34px;font-weight:700;color:${fw.enabled === true ? 'var(--green)' : fw.enabled === false ? 'var(--red)' : 'var(--dim)'}">${fw.enabled === true ? 'PROTECTED' : fw.enabled === false ? 'EXPOSED' : 'UNKNOWN'}</div>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+            <div style="font-size:28px;font-weight:700;color:${fwVerified ? 'var(--green)' : fw.enabled === false ? 'var(--red)' : 'var(--amber)'}">${fwVerified ? 'POLICY VERIFIED' : fw.enabled === true ? 'ACTIVE — REVIEW POLICY' : fw.enabled === false ? 'NOT ACTIVE' : 'UNKNOWN'}</div>
             ${fwBadge}
           </div>
-          <p class="mono muted mt16" style="font-size:10.5px;line-height:1.8">${esc(fw.details)}</p>
+          <p class="mono muted mt16" style="font-size:10.5px;line-height:1.8">${esc(fw.details || 'Firewall status unavailable')}</p>
           <div class="tag-row mt16">
-            ${fw.profiles.map((p) => `<span class="badge ${p.enabled ? 'ok' : 'crit'}"><span class="dot"></span>${esc(p.name)}: ${p.enabled ? 'ON' : 'OFF'}</span>`).join('')}
+            ${(fw.profiles || []).map((profile) => `<span class="badge ${profile.enabled === true ? 'ok' : profile.enabled === false ? 'crit' : 'neutral'}"><span class="dot"></span>${esc(profile.name)}: ${profile.enabled === true ? 'ON' : profile.enabled === false ? 'OFF' : '?'}</span>`).join('')}
           </div>
           <div class="btn-row mt16">
             ${fw.enabled === false ? `<button class="btn btn-primary" id="n-fwfix">${icon('shield')} Enable Firewall</button>` : ''}
             <button class="btn" id="n-refresh">${icon('refresh')} Refresh</button>
           </div>
+          <p class="muted" style="font-size:10px;margin-top:10px">A running firewall service does not prove every inbound rule is safe.</p>
         </div>
         <div class="card">
-          <div class="card-title">${icon('globe')} Listening Ports <span class="muted" style="letter-spacing:.05em">(${n.net.listening.length})</span></div>
-          <div class="tag-row" style="max-height:190px;overflow-y:auto">${listenChips || '<span class="muted" style="font-size:11px">No listening ports detected</span>'}</div>
+          <div class="card-title">${icon('globe')} Listening / Bound Endpoints <span class="muted" style="letter-spacing:.05em">(${networkAvailable ? listening.length : '?'})</span></div>
+          <div class="muted mono" style="font-size:10px;margin:8px 0 12px">${networkAvailable ? exposed.length + ' bound to a non-loopback address' : esc(net.error || 'Endpoint exposure unavailable')}</div>
+          <div class="tag-row" style="max-height:190px;overflow-y:auto">${listenChips || `<span class="muted" style="font-size:11px">${networkAvailable ? 'No listening endpoints detected' : 'Network endpoint data unavailable'}</span>`}</div>
         </div>
       </div>
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Active Connections</span><span class="sec-line"></span><span class="sec-idx">${n.net.connections.length} TOTAL</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Active Connections</span><span class="sec-line"></span><span class="sec-idx">${networkAvailable ? connections.length + ' TOTAL' : 'STATUS UNKNOWN'}</span></div>
       <div class="toolbar">
         <input class="input" id="n-filter" placeholder="Filter by address / process…" />
         <span class="spacer"></span>
@@ -752,9 +778,9 @@ VIEWS.network = {
     const b1 = $('#n-refresh'); if (b1) b1.addEventListener('click', refresh);
     const b2 = $('#n-refresh2'); if (b2) b2.addEventListener('click', refresh);
     const fix = $('#n-fwfix');
-    if (fix) fix.addEventListener('click', () => gate('Automatic firewall repair', enableFirewallNow));
-    const f = $('#n-filter');
-    if (f) f.addEventListener('input', (e) => renderConnections(e.target.value));
+    if (fix) fix.addEventListener('click', enableFirewallNow);
+    const filter = $('#n-filter');
+    if (filter) filter.addEventListener('input', (event) => renderConnections(event.target.value));
     renderConnections('');
     if (!VIEWS.network.data) loadNetwork();
   },
@@ -765,22 +791,28 @@ function renderConnections(q) {
   const n = VIEWS.network.data;
   const tbody = $('#n-tbody');
   if (!n || !tbody) return;
-  const qq = (q || '').toLowerCase();
-  const rows = n.net.connections.filter((c) =>
-    !qq || c.local.toLowerCase().includes(qq) || c.remote.toLowerCase().includes(qq) || (c.process || '').toLowerCase().includes(qq));
+  if (n.net && n.net.available === false) {
+    tbody.innerHTML = `<tr><td colspan="6" class="dim" style="text-align:center;padding:24px">${esc(n.net.error || 'NETWORK ENDPOINT DATA UNAVAILABLE')}</td></tr>`;
+    return;
+  }
+  const connections = (n.net && Array.isArray(n.net.connections) && n.net.connections) || [];
+  const query = String(q || '').toLowerCase();
+  const rows = connections.filter((c) =>
+    !query || String(c.local || '').toLowerCase().includes(query) || String(c.remote || '').toLowerCase().includes(query) || String(c.process || '').toLowerCase().includes(query));
   tbody.innerHTML = rows.slice(0, 400).map((c) => {
-    const st = /LISTEN/i.test(c.state)
-      ? '<span class="badge info"><span class="dot"></span>LISTEN</span>'
-      : /ESTABLISHED/i.test(c.state)
+    const state = String(c.state || '—');
+    const st = /LISTEN|BOUND|UNCONN/i.test(state)
+      ? `<span class="badge info"><span class="dot"></span>${esc(state)}</span>`
+      : /ESTABLISHED/i.test(state)
         ? '<span class="badge ok"><span class="dot"></span>ESTABLISHED</span>'
-        : `<span class="badge neutral"><span class="dot"></span>${esc(c.state || '—')}</span>`;
+        : `<span class="badge neutral"><span class="dot"></span>${esc(state)}</span>`;
     return `<tr>
       <td class="mono"><b>${esc(c.proto)}</b></td>
       <td class="mono">${esc(c.local)}</td>
       <td class="mono dim">${esc(c.remote)}</td>
       <td>${st}</td>
       <td class="cell-main">${esc(c.process || '—')}</td>
-      <td class="mono dim">${c.pid || '—'}</td>
+      <td class="mono dim">${Number(c.pid) || '—'}</td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" class="dim" style="text-align:center;padding:24px">NO CONNECTIONS MATCH</td></tr>';
 }
@@ -788,20 +820,23 @@ function renderConnections(q) {
 async function loadNetwork() {
   setBusy(true, 'NETWORK SCAN');
   const [net, firewall] = await Promise.all([api('net:list'), api('fw:status')]);
-  if (net && firewall) {
-    VIEWS.network.data = { net, firewall };
-    if (state.route === 'network') navigate('network');
-    setTimeout(() => renderConnections($('#n-filter') ? $('#n-filter').value : ''), 30);
-  }
+  VIEWS.network.data = {
+    net: net || { connections: [], listening: [], exposed: [], available: false, error: 'Network endpoint query failed' },
+    firewall: firewall || { enabled: null, verified: false, profiles: [], details: 'Firewall status could not be read' },
+  };
+  if (state.route === 'network') navigate('network');
+  setTimeout(() => renderConnections($('#n-filter') ? $('#n-filter').value : ''), 30);
   setBusy(false);
 }
 
 async function enableFirewallNow() {
-  setBusy(true, 'REPAIRING');
-  const res = await api('fw:enable');
+  setBusy(true, 'CHANGING FIREWALL');
+  const result = await api('fw:enable');
   setBusy(false);
-  if (res && res.ok) { toast('Firewall enabled', 'success'); loadNetwork(); }
-  else if (res) toast(res.error || 'Could not enable the firewall', 'error');
+  if (result && result.ok) {
+    toast(result.error || (result.verified === false ? 'Firewall is active; review inbound application rules manually' : 'Firewall command completed and status verified'), result.verified === false ? 'warn' : 'success');
+    loadNetwork();
+  } else if (result && result.error !== 'Cancelled') toast(result.error || 'Could not verify firewall status', 'error');
 }
 
 /* ---------------------------------------------------------- audit */
@@ -810,123 +845,133 @@ VIEWS.audit = {
   label: 'Security Audit',
   data: null,
   render() {
-    const a = VIEWS.audit.data;
-    if (!a) {
+    const audit = VIEWS.audit.data;
+    if (!audit) {
       return `
         <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Security Audit</span><span class="sec-line"></span></div>
-        <div class="card tick" style="max-width:640px">
-          <div class="card-title">${icon('shield')} Automated Security Audit</div>
-          <p class="muted" style="font-size:12.5px;line-height:1.75">Run a full audit: firewall posture, disk encryption, update freshness, recent system errors, suspicious processes, disk pressure and exposed listening ports.</p>
-          <div class="btn-row mt16">
-            <button class="btn btn-primary" id="au-run">${icon('play')} Run Full Audit</button>
-          </div>
+        <div class="card tick" style="max-width:720px">
+          <div class="card-title">${icon('shield')} Local posture checks</div>
+          <p class="muted" style="font-size:12.5px;line-height:1.75">Checks firewall status, system-volume encryption, update status, recent error logs, process risk indicators, system disk pressure and externally bound listening endpoints. This is a heuristic check, not a vulnerability scan and not an antivirus.</p>
+          <div class="btn-row mt16"><button class="btn btn-primary" id="au-run">${icon('play')} Run Checks</button></div>
         </div>`;
     }
-    const overall = a.items.filter((i) => i.status === 'crit').length === 0 && a.items.filter((i) => i.status === 'warn').length === 0;
-    const rows = a.items.map((i) => `
-      <div class="audit-item ${i.status}">
-        ${icon(i.status === 'ok' ? 'check' : i.status === 'warn' ? 'warn' : 'x')}
-        <div class="ai-body">
-          <div class="ai-title">${esc(i.title)}</div>
-          <div class="ai-sub">${esc(i.detail)}</div>
-        </div>
-        ${i.actionLabel ? `<button class="btn btn-sm ${i.actionDanger ? 'btn-danger' : ''}" data-au="${i.action}">${esc(i.actionLabel)}</button>` : ''}
+    const overall = audit.items.every((item) => item.status === 'ok');
+    const rows = audit.items.map((item) => `
+      <div class="audit-item ${item.status}">
+        ${icon(item.status === 'ok' ? 'check' : item.status === 'warn' ? 'warn' : 'x')}
+        <div class="ai-body"><div class="ai-title">${esc(item.title)}</div><div class="ai-sub">${esc(item.detail)}</div></div>
+        ${item.actionLabel ? `<button class="btn btn-sm ${item.actionDanger ? 'btn-danger' : ''}" data-au="${item.action}">${esc(item.actionLabel)}</button>` : ''}
       </div>`).join('');
     return `
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Security Audit</span><span class="sec-line"></span><span class="sec-idx">${a.at}</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Security Audit</span><span class="sec-line"></span><span class="sec-idx">${esc(audit.at)}</span></div>
       <div class="card tick hatch" style="display:flex;align-items:center;gap:18px;margin-bottom:16px">
         ${icon(overall ? 'check' : 'warn', 'sev-ic ' + (overall ? 'ok' : 'high'))}
         <div>
-          <div style="font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${overall ? 'System posture: SOLID' : 'Issues require attention'}</div>
-          <div class="mono muted" style="font-size:10.5px;margin-top:4px">${a.items.filter((i) => i.status !== 'ok').length} finding(s) · ${a.items.length} checks · completed in ${a.ms}ms</div>
+          <div style="font-size:15px;font-weight:700;letter-spacing:.14em;text-transform:uppercase">${overall ? 'No findings in available checks' : 'Review the findings below'}</div>
+          <div class="mono muted" style="font-size:10.5px;margin-top:4px">${audit.items.filter((item) => item.status !== 'ok').length} item(s) need attention · ${audit.items.length} checks · ${audit.ms}ms</div>
         </div>
         <span class="spacer"></span>
         <button class="btn" id="au-again">${icon('refresh')} Re-run</button>
-        <button class="btn btn-primary" id="au-export">${icon('download')} Export Report</button>
+        <button class="btn btn-primary" id="au-export">${icon('download')} Export Summary</button>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`;
+      <div style="display:flex;flex-direction:column;gap:10px">${rows}</div>
+      <p class="muted" style="font-size:10px;margin-top:14px">This heuristic checklist is not an antivirus and cannot certify that a system is secure or malware-free.</p>`;
   },
   init() {
     const run = $('#au-run'); if (run) run.addEventListener('click', runAudit);
     const again = $('#au-again'); if (again) again.addEventListener('click', runAudit);
-    const exp = $('#au-export'); if (exp) exp.addEventListener('click', () => gate('Report export', exportReport));
-    $$('[data-au]').forEach((b) => b.addEventListener('click', () => auditAction(b.dataset.au)));
+    const exp = $('#au-export'); if (exp) exp.addEventListener('click', exportReport);
+    $$('[data-au]').forEach((button) => button.addEventListener('click', () => auditAction(button.dataset.au)));
   },
 };
 
 async function runAudit() {
   setBusy(true, 'AUDIT');
   const t0 = Date.now();
-  const [firewall, encryption, updates, errors, procs, disks, net] = await Promise.all([
+  const [firewall, encryption, updates, errors, processes, disks, net] = await Promise.all([
     api('fw:status'), api('enc:status'), api('updates:check'), api('errors:list'), api('proc:list'), api('disk:usage'), api('net:list'),
   ]);
-  const susp = (procs || []).filter((p) => p.suspicion >= 30);
-  const disk = (disks || [])[0] || {};
-  const diskPct = disk.size ? (disk.used / disk.size) * 100 : 0;
-  const errs = (errors && errors.items) || [];
-  const upd = (updates && updates.items) || [];
+  const processList = processes && processes.available === true && Array.isArray(processes.items) ? processes.items : null;
+  const suspicious = (processList || []).filter((process) => process.suspicion >= 35);
+  const disk = (disks || []).find((item) => item.isSystem) || (disks || []).find((item) => item.mount === '/') || null;
+  const diskPct = disk && disk.size ? (disk.used / disk.size) * 100 : null;
+  const errorItems = errors && Array.isArray(errors.items) ? errors.items : [];
+  const updatesAvailable = updates && Array.isArray(updates.items) ? updates.items : [];
+  const exposed = net && net.available !== false && Array.isArray(net.exposed) ? net.exposed : null;
   const items = [
     {
-      title: 'Firewall active', status: firewall && firewall.enabled === true ? 'ok' : 'crit',
-      detail: firewall ? firewall.details : 'no data',
-      action: firewall && firewall.enabled === false ? 'fw' : null, actionLabel: firewall && firewall.enabled === false ? 'Enable now' : null, actionDanger: false,
+      title: 'Firewall service and inbound policy',
+      status: !firewall || firewall.enabled == null ? 'warn' : firewall.enabled === false ? 'crit' : firewall.verified ? 'ok' : 'warn',
+      detail: firewall ? firewall.details : 'Firewall status could not be read',
+      action: firewall && firewall.enabled === false ? 'fw' : null,
+      actionLabel: firewall && firewall.enabled === false ? 'Enable firewall' : null,
     },
     {
-      title: 'Disk encryption', status: encryption && encryption.enabled === true ? 'ok' : encryption && encryption.enabled === false ? 'warn' : 'warn',
-      detail: encryption ? encryption.details : 'no data',
-      action: 'enc', actionLabel: 'How to enable', actionDanger: false,
+      title: 'System-volume encryption',
+      status: encryption && encryption.enabled === true ? 'ok' : 'warn',
+      detail: encryption ? encryption.details : 'Encryption status could not be read',
+      action: 'enc', actionLabel: 'Guidance',
     },
     {
-      title: 'System updates', status: upd.length === 0 && !(updates && updates.rebootRequired) ? 'ok' : 'warn',
-      detail: upd.length ? upd.length + ' pending update(s)' : (updates && updates.note) || 'up to date',
-      action: 'upd', actionLabel: upd.length ? 'Review updates' : null, actionDanger: false,
+      title: 'Operating-system updates',
+      status: !updates || updates.checkStatus !== 'ok' ? 'warn' : updatesAvailable.length || updates.rebootRequired ? 'warn' : 'ok',
+      detail: !updates || updates.checkStatus !== 'ok' ? (updates && updates.note) || 'Update status unavailable' : updatesAvailable.length ? updatesAvailable.length + ' pending update(s)' : updates.note || 'No pending updates reported by the OS service',
+      action: 'upd', actionLabel: 'Review updates',
     },
     {
-      title: 'System errors (24h)', status: errs.length === 0 ? 'ok' : 'warn',
-      detail: errs.length ? errs.length + ' error event(s) in the last 24 hours' : 'no errors logged',
-      action: 'err', actionLabel: errs.length ? 'Inspect logs' : null, actionDanger: false,
+      title: 'System error log (24h)',
+      status: !errors || errors.available === false ? 'warn' : errorItems.length ? 'warn' : 'ok',
+      detail: !errors || errors.available === false ? (errors && errors.error) || 'Recent error logs are unavailable' : (errors.count24h || 0) + ' recent error event(s); ' + (errors.window || 'time window reported by the OS'),
+      action: errorItems.length ? 'err' : null, actionLabel: errorItems.length ? 'Inspect logs' : null,
     },
     {
-      title: 'Suspicious processes', status: susp.length === 0 ? 'ok' : 'crit',
-      detail: susp.length ? susp.map((p) => p.name + ' (risk ' + p.suspicion + ')').join(', ') : 'no suspicious processes running',
-      action: 'proc', actionLabel: susp.length ? 'Review processes' : null, actionDanger: true,
+      title: 'Process risk indicators',
+      status: suspicious.length ? 'crit' : processList ? 'ok' : 'warn',
+      detail: suspicious.length ? suspicious.length + ' process(es) matched simple name/path/resource heuristics; investigate manually' : processList ? 'No processes matched the current heuristics (this is not a malware scan)' : 'Process inventory unavailable',
+      action: suspicious.length ? 'proc' : null, actionLabel: suspicious.length ? 'Review processes' : null, actionDanger: false,
     },
     {
-      title: 'Disk space', status: diskPct < 85 ? 'ok' : diskPct < 92 ? 'warn' : 'crit',
-      detail: disk.mount ? disk.mount + ' — ' + diskPct.toFixed(0) + '% used (' + fmtBytes(disk.free) + ' free)' : 'no data',
-      action: 'disk', actionLabel: 'Find large files', actionDanger: false,
+      title: 'System disk space',
+      status: diskPct == null ? 'warn' : diskPct < 85 ? 'ok' : diskPct < 92 ? 'warn' : 'crit',
+      detail: disk && diskPct != null ? disk.mount + ' — ' + diskPct.toFixed(0) + '% used (' + fmtBytes(disk.free) + ' free)' : 'System disk usage unavailable',
+      action: 'disk', actionLabel: 'Find large files',
     },
     {
-      title: 'Exposed listening ports', status: net && net.listening.length <= 10 ? 'ok' : 'warn',
-      detail: net ? net.listening.length + ' listening port(s) — review services that accept external connections' : 'no data',
-      action: 'net', actionLabel: 'Inspect network', actionDanger: false,
+      title: 'Non-loopback listening endpoints',
+      status: exposed == null ? 'warn' : exposed.length ? 'warn' : 'ok',
+      detail: exposed == null ? 'Network endpoint exposure could not be assessed' : exposed.length + ' endpoint(s) bound beyond loopback; verify whether each is intentional',
+      action: 'net', actionLabel: 'Inspect network',
     },
   ];
-  VIEWS.audit.data = { items, at: new Date().toLocaleString(), ms: Date.now() - t0, raw: { firewall, encryption, updates, errors, susp, disk, disks, net } };
+  VIEWS.audit.data = {
+    items,
+    at: new Date().toLocaleString(),
+    ms: Date.now() - t0,
+    raw: { firewall, encryption, updates, errors, suspicious, processesAvailable: !!processList, disk, disks, net },
+  };
   if (state.route === 'audit') navigate('audit');
   setBusy(false);
 }
 
-function auditAction(act) {
-  if (act === 'fw') gate('Automatic firewall repair', enableFirewallNow);
-  if (act === 'upd') navigate('updates');
-  if (act === 'proc') navigate('processes');
-  if (act === 'disk') { filesState.result = null; navigate('files'); setTimeout(() => { $('#f-mode').value = 'large'; }, 30); }
-  if (act === 'net') navigate('network');
-  if (act === 'err') {
-    const errs = (VIEWS.audit.data.raw.errors.items || []).slice(0, 40)
-      .map((e) => `<div class="list-row"><div class="lr-body"><div class="lr-title" style="font-family:var(--mono);font-size:10.5px">${esc(e.time)} · ${esc(e.source)}</div><div class="lr-sub">${esc(e.message)}</div></div></div>`).join('');
-    openModal(`<div class="modal-head"><h3>System <em>Errors</em> — 24h</h3><button class="modal-x" id="m-x">${icon('x')}</button></div>${errs || '<p class="muted">No errors logged.</p>'}`, true);
+function auditAction(action) {
+  if (action === 'fw') enableFirewallNow();
+  if (action === 'upd') navigate('updates');
+  if (action === 'proc') navigate('processes');
+  if (action === 'disk') { filesState.result = null; navigate('files'); setTimeout(() => { const mode = $('#f-mode'); if (mode) mode.value = 'large'; }, 30); }
+  if (action === 'net') navigate('network');
+  if (action === 'err') {
+    const entries = (((VIEWS.audit.data || {}).raw || {}).errors || {}).items || [];
+    const html = entries.slice(0, 40).map((entry) => `<div class="list-row"><div class="lr-body"><div class="lr-title" style="font-family:var(--mono);font-size:10.5px">${esc(entry.time)} · ${esc(entry.source)}</div><div class="lr-sub">${esc(entry.message)}</div></div></div>`).join('');
+    openModal(`<div class="modal-head"><h3>Recent System <em>Errors</em></h3><button class="modal-x" id="m-x">${icon('x')}</button></div>${html || '<p class="muted">No events to show.</p>'}`, true);
     $('#m-x').onclick = closeModal;
   }
-  if (act === 'enc') {
-    const osLabel = state.sys ? state.sys.platformLabel : 'your OS';
+  if (action === 'enc') {
     openModal(`
-      <div class="modal-head"><h3>Enable <em>Encryption</em></h3><button class="modal-x" id="m-x">${icon('x')}</button></div>
+      <div class="modal-head"><h3>Enable System <em>Encryption</em></h3><button class="modal-x" id="m-x">${icon('x')}</button></div>
       <div style="color:var(--dim);font-size:12.5px;line-height:1.8">
-        <p><b style="color:var(--txt)">Windows:</b> enable BitLocker — Settings → Privacy &amp; Security → Device encryption, or run <span class="mono" style="color:var(--cyan)">manage-bde -on C:</span> as Administrator.</p>
+        <p><b style="color:var(--txt)">Windows:</b> use Settings → Privacy &amp; Security → Device encryption / BitLocker for the operating-system volume. Store the recovery key safely.</p>
         <p style="margin-top:10px"><b style="color:var(--txt)">macOS:</b> System Settings → Privacy &amp; Security → FileVault → Turn On.</p>
-        <p style="margin-top:10px"><b style="color:var(--txt)">Linux:</b> install with full-disk LUKS, or add a encrypted home/crypt container with <span class="mono" style="color:var(--cyan)">cryptsetup</span>.</p>
+        <p style="margin-top:10px"><b style="color:var(--txt)">Linux:</b> full-disk encryption is normally configured during installation; back up recovery material before changing storage encryption.</p>
       </div>
       <div class="btn-row mt24"><button class="btn btn-primary" id="m-ok">GOT IT</button></div>`);
     $('#m-x').onclick = closeModal;
@@ -935,19 +980,36 @@ function auditAction(act) {
 }
 
 async function exportReport() {
-  const a = VIEWS.audit.data;
-  if (!a) return;
+  const audit = VIEWS.audit.data;
+  if (!audit) return;
+  const scan = state.scan || {};
+  const raw = audit.raw || {};
   const report = {
-    app: 'AEGIS Sentinel', version: state.version, generatedAt: new Date().toISOString(),
-    system: state.sys || (state.scan && state.scan.system),
-    health: state.scan && state.scan.score,
-    audit: a.items.map(({ title, status, detail }) => ({ title, status, detail })),
-    raw: a.raw,
+    app: 'AEGIS Sentinel',
+    version: state.version,
+    generatedAt: new Date().toISOString(),
+    system: {
+      platformLabel: (state.sys || {}).platformLabel || 'Unknown',
+      osCaption: (state.sys || {}).osCaption || 'Unknown',
+      arch: (state.sys || {}).arch || 'Unknown',
+      cpus: Number((state.sys || {}).cpus) || null,
+      totalRam: Number((state.sys || {}).totalRam) || null,
+    },
+    posture: scan.score ? { score: scan.score.score, grade: scan.score.grade, disclaimer: scan.score.disclaimer } : null,
+    checks: audit.items.map(({ title, status }) => ({ title, status })),
+    counts: {
+      pendingUpdates: raw.updates && raw.updates.checkStatus === 'ok' && Array.isArray(raw.updates.items) ? raw.updates.items.length : null,
+      recentErrorEvents: raw.errors && raw.errors.available !== false && Number.isFinite(raw.errors.count24h) ? raw.errors.count24h : null,
+      processRiskSignals: raw.processesAvailable && Array.isArray(raw.suspicious) ? raw.suspicious.length : null,
+      listeningEndpoints: raw.net && raw.net.available !== false && Array.isArray(raw.net.listening) ? raw.net.listening.length : null,
+      externallyBoundEndpoints: raw.net && raw.net.available !== false && Array.isArray(raw.net.exposed) ? raw.net.exposed.length : null,
+    },
+    privacyNote: 'This summary omits hostname, username, file paths, process names, remote IP addresses, and raw log messages.',
   };
   setBusy(true, 'EXPORTING');
-  const res = await api('report:save', report);
+  const result = await api('report:save', report);
   setBusy(false);
-  if (res) toast('Report exported: ' + res, 'success');
+  if (result) toast('Privacy-limited report exported', 'success');
 }
 
 /* ---------------------------------------------------------- updates */
@@ -956,33 +1018,36 @@ VIEWS.updates = {
   label: 'Updates',
   data: null,
   render() {
-    const u = VIEWS.updates.data;
-    if (!u) {
+    const updates = VIEWS.updates.data;
+    if (!updates) {
       return `
         <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">System Updates</span><span class="sec-line"></span></div>
         <div class="card" style="display:flex;gap:16px;align-items:center">
-          <span class="spinner"></span><span class="muted" style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600">Checking for updates…</span>
+          <span class="spinner"></span><span class="muted" style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600">Checking with the operating system…</span>
         </div>`;
     }
-    const items = u.items || [];
+    const items = Array.isArray(updates.items) ? updates.items : [];
+    const checkFailed = updates.checkStatus !== 'ok';
     const rows = items.length
-      ? items.slice(0, 200).map((x) => `<tr>
-          <td class="cell-main">${esc(x.name)}</td>
-          <td class="mono dim">${esc(x.version || '—')}</td>
-          <td class="dim">${esc(x.source || '')}</td>
-          <td class="mono right">${x.size ? fmtBytes(x.size) : '—'}</td>
+      ? items.slice(0, 200).map((item) => `<tr>
+          <td class="cell-main">${esc(item.name)}</td>
+          <td class="mono dim">${esc(item.version || '—')}</td>
+          <td class="dim">${esc(item.source || '')}</td>
+          <td class="mono right">${item.size ? fmtBytes(item.size) : '—'}</td>
         </tr>`).join('')
-      : '<tr><td colspan="4"><div class="empty">' + icon('check') + '<p>System is up to date</p></div></td></tr>';
+      : checkFailed
+        ? `<tr><td colspan="4"><div class="empty">${icon('warn')}<p>Update status could not be verified</p></div></td></tr>`
+        : `<tr><td colspan="4"><div class="empty">${icon('check')}<p>No pending updates were reported by the OS service</p></div></td></tr>`;
     return `
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">System Updates</span><span class="sec-line"></span><span class="sec-idx">PATCH MANAGEMENT</span></div>
+      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">System Updates</span><span class="sec-line"></span><span class="sec-idx">OPERATING-SYSTEM SERVICE</span></div>
       <div class="grid-3">
-        <div class="card stat"><div class="stat-label">Pending Updates</div><div class="stat-value">${items.length}</div><div class="stat-sub">${esc(u.note || '')}</div></div>
-        <div class="card stat"><div class="stat-label">Last Installed</div><div class="stat-value" style="font-size:22px">${u.lastInstalled ? esc(u.lastInstalled) : 'n/a'}</div><div class="stat-sub">most recent patch</div></div>
-        <div class="card stat ${u.rebootRequired ? 'warn' : 'ok'}"><div class="stat-label">Restart</div><div class="stat-value" style="font-size:22px">${u.rebootRequired ? 'REQUIRED' : 'NOT REQUIRED'}</div><div class="stat-sub">to finish updates</div></div>
+        <div class="card stat"><div class="stat-label">Pending Updates</div><div class="stat-value">${checkFailed ? 'UNKNOWN' : items.length}</div><div class="stat-sub">${esc(updates.note || '')}</div></div>
+        <div class="card stat"><div class="stat-label">Last Installed</div><div class="stat-value" style="font-size:22px">${updates.lastInstalled ? esc(updates.lastInstalled) : 'n/a'}</div><div class="stat-sub">most recent recorded update</div></div>
+        <div class="card stat ${updates.rebootRequired === true ? 'warn' : updates.rebootRequired == null ? '' : 'ok'}"><div class="stat-label">Restart</div><div class="stat-value" style="font-size:22px">${updates.rebootRequired == null ? 'UNKNOWN' : updates.rebootRequired ? 'REQUIRED' : 'NOT REQUIRED'}</div><div class="stat-sub">to finish updates</div></div>
       </div>
       <div class="btn-row mt16">
         <button class="btn" id="u-refresh">${icon('refresh')} Re-check</button>
-        <button class="btn btn-primary" id="u-install">${icon('download')} Install All Updates</button>
+        <button class="btn btn-primary" id="u-install" ${checkFailed || items.length === 0 ? 'disabled' : ''}>${icon('download')} Install Available Updates</button>
       </div>
       <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Available Updates</span><span class="sec-line"></span></div>
       <div class="table-wrap">
@@ -991,219 +1056,49 @@ VIEWS.updates = {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      ${u.history && u.history.length ? `
+      ${updates.history && updates.history.length ? `
       <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Recent Update History</span><span class="sec-line"></span></div>
       <div class="table-wrap" style="max-height:240px">
         <table class="data">
           <thead><tr><th>HotFix</th><th>Description</th><th>Installed</th></tr></thead>
-          <tbody>${u.history.map((h) => `<tr><td class="mono">${esc(h.name)}</td><td class="dim">${esc(h.version)}</td><td class="mono dim">${esc(h.time || '—')}</td></tr>`).join('')}</tbody>
+          <tbody>${updates.history.map((item) => `<tr><td class="mono">${esc(item.name)}</td><td class="dim">${esc(item.version)}</td><td class="mono dim">${esc(item.time || '—')}</td></tr>`).join('')}</tbody>
         </table>
-      </div>` : ''}`;
+      </div>` : ''}
+      <p class="muted" style="font-size:10px;margin-top:12px">The app reports the OS update service result; verify completion and restart status in system settings.</p>`;
   },
   init() {
-    const r = $('#u-refresh'); if (r) r.addEventListener('click', loadUpdates);
-    const i = $('#u-install'); if (i) i.addEventListener('click', () => gate('Automatic update installation', installAllUpdates));
+    const refresh = $('#u-refresh'); if (refresh) refresh.addEventListener('click', loadUpdates);
+    const install = $('#u-install'); if (install) install.addEventListener('click', installAllUpdates);
     if (!VIEWS.updates.data) loadUpdates();
   },
 };
 
 async function loadUpdates() {
   setBusy(true, 'UPDATE CHECK');
-  const res = await api('updates:check');
-  if (res) { VIEWS.updates.data = res; if (state.route === 'updates') navigate('updates'); }
+  const result = await api('updates:check');
+  VIEWS.updates.data = result || { items: [], history: [], checkStatus: 'error', note: 'Update status could not be verified', rebootRequired: null };
+  if (state.route === 'updates') navigate('updates');
   setBusy(false);
 }
 
 async function installAllUpdates() {
-  confirmDialog('Install updates', 'Start the operating system update installation now? A restart may be required afterwards.', false, async () => {
-    setBusy(true, 'UPDATING');
-    const res = await api('updates:install');
-    setBusy(false);
-    if (res) toast(res.note || 'Update process started', res.ok ? 'success' : 'warn');
-  });
-}
-
-/* ---------------------------------------------------------- pro */
-
-VIEWS.pro = {
-  label: 'AEGIS PRO',
-  render() {
-    if (isPro()) {
-      return `
-        <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">License</span><span class="sec-line"></span></div>
-        <div class="card tick" style="max-width:640px">
-          <div class="card-title">${icon('check')} AEGIS PRO — ACTIVE</div>
-          <div class="stat-value" style="font-size:26px">ALL MODULES UNLOCKED</div>
-          <p class="mono muted mt16" style="font-size:11px;line-height:1.9">
-            LICENSE KEY: <b style="color:var(--green)">${esc(state.license.key)}</b><br>
-            ACTIVATED: ${esc(state.license.since || '—')}<br>
-            TIER: PRO · PERPETUAL LICENSE
-          </p>
-          <div class="btn-row mt24"><button class="btn btn-danger" id="pr-deact">DEACTIVATE LICENSE</button></div>
-        </div>`;
-    }
-    return `
-      <div class="pro-hero hatch">
-        <div class="hatch-bg"><svg viewBox="0 0 100 100" fill="none" stroke="rgba(31,224,255,.25)" stroke-width="1">
-          <path d="M50 5 95 30v40L50 95 5 70V30z"/><path d="M50 20 80 37v26L50 80 20 63V37z"/><path d="M50 35 65 44v12L50 65 35 56V44z"/>
-        </svg></div>
-        <h1>AEGIS <em>PRO</em></h1>
-        <p>The full system command center. Unlimited scans, one-click repair, application removal,
-        automatic updates, real-time shields and priority support — on Windows, macOS and Linux.</p>
-        <div class="btn-row mt24">
-          <a href="#plans" style="text-decoration:none"><button class="btn btn-primary">SEE PLANS</button></a>
-          <button class="btn" id="pr-key-btn">I HAVE A KEY</button>
-        </div>
-      </div>
-
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Why Go Pro</span><span class="sec-line"></span></div>
-      <div class="feat-grid">
-        ${[['zap', 'Unlimited Scans', 'Full-depth filesystem sweeps with no result caps or daily limits.'],
-          ['trash', 'One-Click Cleaning', 'Select and permanently remove junk, duplicates and large files in bulk.'],
-          ['layers', 'App Removal', 'Uninstall applications directly from the inventory — no control panel needed.'],
-          ['download', 'Auto-Update', 'Install missing OS updates from inside the app, on your schedule.'],
-          ['shield', 'Real-Time Shield', 'Watch processes, ports and startup items as they change.'],
-          ['star', 'Priority Support', 'Direct line to the AEGIS engineering team, 24/7.']]
-        .map(([ic, t, d]) => `<div class="feat">${icon(ic)}<h4>${t}</h4><p>${d}</p></div>`).join('')}
-      </div>
-
-      <div class="sec-head" id="plans"><span class="sec-sq"></span><span class="sec-title">Plans</span><span class="sec-line"></span><span class="sec-idx">DEMO CHECKOUT — NO REAL PAYMENT</span></div>
-      <div class="grid-2" style="max-width:900px">
-        <div class="card price-card tick selected" data-plan="pro" data-price="29.99" data-name="AEGIS PRO — 1 DEVICE">
-          <div class="card-title">PRO · SINGLE DEVICE</div>
-          <div class="price">$29.99 <small>one-time</small></div>
-          <div class="muted" style="font-size:11px;letter-spacing:.08em">PERPETUAL LICENSE · 1 PC/MAC</div>
-          <ul>
-            <li>${icon('check')} All PRO modules unlocked</li>
-            <li>${icon('check')} Lifetime updates for v1.x</li>
-            <li>${icon('check')} 1 device activation</li>
-            <li>${icon('check')} Email support</li>
-          </ul>
-        </div>
-        <div class="card price-card" data-plan="team" data-price="79.99" data-name="AEGIS PRO — 5 DEVICES">
-          <div class="card-title">PRO · TEAM / FAMILY</div>
-          <div class="price">$79.99 <small>one-time</small></div>
-          <div class="muted" style="font-size:11px;letter-spacing:.08em">PERPETUAL LICENSE · 5 DEVICES</div>
-          <ul>
-            <li>${icon('check')} Everything in PRO</li>
-            <li>${icon('check')} 5 device activations</li>
-            <li>${icon('check')} Central license management</li>
-            <li>${icon('check')} Priority 24/7 support</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Checkout</span><span class="sec-line"></span></div>
-      <div class="card" style="max-width:900px">
-        <div class="grid-2" style="gap:14px">
-          <div class="field"><label>Full Name</label><input class="input" id="ck-name" placeholder="Alex Martin" /></div>
-          <div class="field"><label>Email</label><input class="input" id="ck-email" placeholder="alex@studio.com" /></div>
-          <div class="field"><label>Card Number</label><input class="input" id="ck-card" inputmode="numeric" placeholder="4242 4242 4242 4242" maxlength="19" /></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div class="field"><label>Expiry (MM/YY)</label><input class="input" id="ck-exp" placeholder="08/28" maxlength="5" /></div>
-            <div class="field"><label>CVC</label><input class="input" id="ck-cvc" inputmode="numeric" placeholder="123" maxlength="4" /></div>
-          </div>
-        </div>
-        <div class="btn-row mt24">
-          <button class="btn btn-primary" id="ck-pay">${icon('lock')} Pay $29.99 &amp; Activate</button>
-          <span class="muted mono" style="font-size:10px;align-self:center">DEMO MODE — NO REAL CHARGE. ANY VALID-LOOKING CARD WORKS.</span>
-        </div>
-      </div>
-
-      <div class="sec-head"><span class="sec-sq"></span><span class="sec-title">Activate a License Key</span><span class="sec-line"></span></div>
-      <div class="card" style="max-width:900px">
-        <div style="display:flex;gap:10px">
-          <input class="input" id="key-input" placeholder="AEGIS-XXXX-XXXX-XXXX-XXXX" style="max-width:340px" />
-          <button class="btn btn-primary" id="key-activate">ACTIVATE</button>
-        </div>
-      </div>`;
-  },
-  init() {
-    if (isPro()) {
-      $('#pr-deact').addEventListener('click', () => {
-        confirmDialog('Deactivate license', 'Return AEGIS Sentinel to the FREE edition on this machine?', false, async () => {
-          await api('license:set', { tier: 'free', key: null, since: null });
-          state.license = { tier: 'free', key: null, since: null };
-          refreshLicenseUI();
-          toast('License deactivated — FREE edition active', 'warn');
-          navigate('pro');
-        });
-      });
-      return;
-    }
-    let plan = { price: '29.99', name: 'AEGIS PRO — 1 DEVICE' };
-    $$('.price-card').forEach((c) => c.addEventListener('click', () => {
-      $$('.price-card').forEach((x) => x.classList.remove('selected'));
-      c.classList.add('selected');
-      plan = { price: c.dataset.price, name: c.dataset.name };
-      $('#ck-pay').innerHTML = `${icon('lock')} Pay $${plan.price} &amp; Activate`;
-    }));
-    $('#ck-card').addEventListener('input', (e) => {
-      const d = e.target.value.replace(/\D/g, '').slice(0, 16);
-      e.target.value = d.replace(/(.{4})/g, '$1 ').trim();
-    });
-    $('#ck-exp').addEventListener('input', (e) => {
-      let d = e.target.value.replace(/\D/g, '').slice(0, 4);
-      if (d.length >= 3) d = d.slice(0, 2) + '/' + d.slice(2);
-      e.target.value = d;
-    });
-    $('#ck-pay').addEventListener('click', () => {
-      const name = $('#ck-name').value.trim();
-      const email = $('#ck-email').value.trim();
-      const card = $('#ck-card').value.replace(/\D/g, '');
-      const exp = $('#ck-exp').value;
-      const cvc = $('#ck-cvc').value;
-      if (name.length < 2) return toast('Enter the cardholder name', 'warn');
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('Enter a valid email address', 'warn');
-      if (card.length !== 16) return toast('Card number must be 16 digits', 'warn');
-      if (!/^\d{2}\/\d{2}$/.test(exp)) return toast('Expiry must be MM/YY', 'warn');
-      if (!/^\d{3,4}$/.test(cvc)) return toast('CVC must be 3-4 digits', 'warn');
-      const rnd = () => Array.from(crypto.getRandomValues(new Uint8Array(4))).map((b) => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[b % 31]).join('');
-      const key = `AEGIS-${rnd()}-${rnd()}-${rnd()}-${rnd()}`;
-      activateLicense(key);
-    });
-    $('#key-activate').addEventListener('click', () => {
-      const v = $('#key-input').value.trim().toUpperCase();
-      if (!/^AEGIS-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(v)) {
-        return toast('Invalid key format — expected AEGIS-XXXX-XXXX-XXXX-XXXX', 'error');
-      }
-      activateLicense(v);
-    });
-    $('#pr-key-btn').addEventListener('click', () => { const k = $('#key-input'); if (k) k.focus(); });
-  },
-};
-
-async function activateLicense(key) {
-  const license = { tier: 'pro', key, since: new Date().toISOString() };
-  const saved = await api('license:set', license);
-  if (saved) {
-    state.license = saved;
-    refreshLicenseUI();
-    toast('AEGIS PRO activated — all modules unlocked', 'success');
-    navigate('pro');
-  }
-}
-
-function refreshLicenseUI() {
-  const chip = $('#lic-chip');
-  const label = $('#lic-label');
-  if (isPro()) {
-    chip.classList.add('pro');
-    label.textContent = 'PRO — LICENSED';
-  } else {
-    chip.classList.remove('pro');
-    label.textContent = 'FREE EDITION';
-  }
+  setBusy(true, 'INSTALLING UPDATES');
+  const result = await api('updates:install');
+  setBusy(false);
+  if (!result || result.error === 'Cancelled') return;
+  toast(result.note || result.error || 'Update command finished', result.ok ? 'success' : 'error');
+  if (result.ok) loadUpdates();
 }
 
 /* ============================================================ router */
 
 function navigate(route, opts = {}) {
+  const view = VIEWS[route];
+  if (!view) return;
   activeTimers.forEach(clearInterval);
   activeTimers = [];
   state.route = route;
   $$('.nav-item').forEach((n) => n.classList.toggle('active', n.dataset.route === route));
-  const view = VIEWS[route];
   $('#view').innerHTML = view.render();
   $('#view').scrollTop = 0;
   const label = view.label || route;
@@ -1219,7 +1114,6 @@ function injectIcons() {
     root.innerHTML = root.innerHTML.replace(/__ICON_(\w+)__/g, (_m, n) => icon(n.toLowerCase()));
   };
   inject($('#nav'));
-  inject($('.nav-foot'));
   inject($('.titlebar-right'));
   $('#brand-mark').innerHTML = LOGO;
 }
@@ -1233,18 +1127,16 @@ function startClock() {
 async function boot() {
   injectIcons();
   startClock();
-  $('#tb-min').addEventListener('click', () => IPC.invoke('win:minimize'));
-  $('#tb-max').addEventListener('click', () => IPC.invoke('win:toggleMax'));
-  $('#tb-close').addEventListener('click', () => IPC.invoke('win:close'));
+  $('#tb-min').addEventListener('click', () => IPC.minimize());
+  $('#tb-max').addEventListener('click', () => IPC.toggleMaximize());
+  $('#tb-close').addEventListener('click', () => IPC.close());
   $$('.nav-item').forEach((n) => n.addEventListener('click', () => navigate(n.dataset.route)));
 
-  const lic = await api('license:get');
-  if (lic) { state.license = lic; refreshLicenseUI(); }
 
   const info = await api('sys:info');
   if (info) {
     state.sys = info;
-    $('#sb-os').textContent = (info.osCaption || info.platformLabel) + ' · ' + info.arch.toUpperCase() + ' · ' + info.hostname;
+    $('#sb-os').textContent = (info.osCaption || info.platformLabel || 'Unknown OS') + ' · ' + String(info.arch || 'unknown').toUpperCase() + ' · ' + (info.hostname || 'unknown host');
     $('#brand-ver').textContent = 'v' + state.version;
   }
   navigate('dashboard');

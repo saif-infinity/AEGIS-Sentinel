@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AEGIS Sentinel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,9 +22,6 @@
           <span class="brand-sub">SENTINEL <em id="brand-ver">v1.0.0</em></span>
         </div>
       </div>
-      <div class="lic-chip" id="lic-chip">
-        <span class="lic-dot"></span><span id="lic-label">FREE EDITION</span>
-      </div>
       <nav class="nav" id="nav">
         <button class="nav-item" data-route="dashboard"><span class="nav-idx">01</span> __ICON_GRID__ <span>Dashboard</span></button>
         <button class="nav-item" data-route="files"><span class="nav-idx">02</span> __ICON_FOLDER__ <span>File Scanner</span></button>
@@ -34,9 +31,6 @@
         <button class="nav-item" data-route="audit"><span class="nav-idx">06</span> __ICON_SHIELD__ <span>Security Audit</span></button>
         <button class="nav-item" data-route="updates"><span class="nav-idx">07</span> __ICON_REFRESH__ <span>Updates</span></button>
       </nav>
-      <div class="nav-foot">
-        <button class="nav-item nav-pro" data-route="pro">__ICON_STAR__ <span>AEGIS PRO</span> <span class="pro-arrow">__ICON_ARROW__</span></button>
-      </div>
     </aside>
 
     <div class="main">

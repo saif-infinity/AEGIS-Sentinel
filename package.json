@@ -2,7 +2,7 @@
   "name": "aegis-sentinel",
   "productName": "AEGIS Sentinel",
   "version": "1.0.0",
-  "description": "System security, health and optimization platform for Windows, macOS and Linux",
+  "description": "Local system inventory and heuristic security-posture checks for Windows, macOS and Linux",
   "main": "main.js",
   "author": "AEGIS Labs",
   "license": "Proprietary",
@@ -12,7 +12,7 @@
     "scan": "node lib/scanner.js",
     "test": "node test/smoke.js",
     "demo": "node scripts/build-demo.js",
-    "check": "node --check main.js && node --check preload.js && node --check src/renderer.js && node --check lib/scanner.js",
+    "check": "node --check main.js && node --check preload.js && node --check src/renderer.js && node --check lib/scanner.js && node --check test/smoke.js && node --check scripts/build-demo.js",
     "dist": "electron-builder --publish never",
     "dist:win": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never",
@@ -21,7 +21,7 @@
   "build": {
     "appId": "com.aegislabs.sentinel",
     "productName": "AEGIS Sentinel",
-    "copyright": "Copyright © 2026 AEGIS Labs",
+    "copyright": "Copyright \u00a9 2026 AEGIS Labs",
     "files": [
       "main.js",
       "preload.js",
@@ -34,7 +34,10 @@
       "output": "release"
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon.png"
     },
     "nsis": {
@@ -45,19 +48,32 @@
       "shortcutName": "AEGIS Sentinel"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.png",
       "category": "public.app-category.utilities"
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "icon": "assets/icon.png",
       "category": "Utility;System;"
     }
   },
   "devDependencies": {
-    "electron": "^33.2.0",
-    "electron-builder": "^25.1.8",
+    "electron": "^44.7.0",
+    "electron-builder": "26.15.3",
     "jsdom": "^30.1.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "@electron/get": "5.1.0"
   }
 }

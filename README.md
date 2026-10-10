@@ -1,92 +1,82 @@
 # AEGIS Sentinel
 
-**System security, health & optimization platform** for Windows, macOS and Linux.
-One codebase, three desktop targets, a freemium business model.
+**First public edition (V1)** — a local desktop utility for system inventory and security-posture checks on Windows, macOS and Linux. Every feature included in this edition is available without paid tiers, license keys, checkout or feature gating.
 
 ![design](https://img.shields.io/badge/design-angular%20SOC-1FE0FF) ![platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-3BE081) ![stack](https://img.shields.io/badge/stack-Electron%20%2B%20vanilla%20JS-FFB224)
 
----
+## Capabilities
 
-## What it does
-
-| Module | Capability |
+| Module | What it does |
 |---|---|
-| **Dashboard** | Live health score (0–100, grade S–D), CPU / RAM / disk / network telemetry, suspicious-process feed, findings, live event ticker |
-| **File Scanner** | Junk & temp sweep, large-file finder, duplicate detection (size + MD5 grouping), safe deletion with reclaimable-space total |
-| **Process Monitor** | Live process table with two-pass CPU sampling, memory, executable path, per-process **risk scoring** (temp-dir execution, cryptominer signatures, CPU/memory anomalies, spoofed system names), force-stop |
-| **Applications** | Full installed-software inventory (registry on Windows, `/Applications` + Homebrew on macOS, `.desktop` + apt on Linux), publisher/version/size, **bloatware flags** |
-| **Network** | Active TCP/UDP connection mapping with owning process, listening-port exposure list, per-profile firewall status, one-click firewall repair |
-| **Security Audit** | 7-point automated audit (firewall, encryption, updates, 24h error logs, suspicious processes, disk pressure, exposed ports) with guided fixes and JSON report export |
-| **Updates** | Missing OS updates (Windows Update history + PSWindowsUpdate, `softwareupdate -l`, `apt list --upgradable`), restart-required detection, install-all |
+| **Dashboard** | System telemetry, disk and memory pressure, process-risk indicators, scan findings and a heuristic posture score |
+| **File Scanner** | Bounded scans for old temporary/cache candidates, large files and duplicate content (SHA-256); partial coverage is reported, and only old junk candidates can be selected for cleanup and sent to the system Trash |
+| **Processes** | Process inventory, short CPU sampling, memory usage and transparent name/path/resource heuristics; optional process stop with a native confirmation |
+| **Applications** | Installed-software inventory and heuristic flags; only applications with a supported, validated OS uninstall method can be uninstalled |
+| **Network** | TCP/UDP endpoints and owning-process data where the OS permits, non-loopback listeners, and firewall-service/policy status |
+| **Security Audit** | Seven local posture checks and a privacy-limited JSON summary export |
+| **Updates** | Status from the operating-system update service and an OS-native install action where available |
 
-The **engine** (`lib/scanner.js`) is pure Node.js — no Electron dependency — and auto-detects the OS to run the right commands (PowerShell on Windows, `ps`/`ss`/`journalctl`/`apt` on Linux, `lsof`/`sw_vers`/`softwareupdate` on macOS).
+## Important limitations
 
-## Design system — "Angular SOC"
+AEGIS Sentinel is **not an antivirus, malware scanner, vulnerability scanner, firewall replacement or security guarantee**. Process labels and the 0–100 posture score are simple heuristics; investigate any signal independently. “No findings” does not mean a device is secure.
 
-- **Zero rounded corners** — enforced globally (`border-radius: 0 !important`)
-- HUD corner brackets on cards, **clipped-corner** primary buttons (`clip-path`), **skewed** gauge segments
-- Dark ops-center palette: near-black panels, electric-cyan accents, mono telemetry (`JetBrains Mono`) + `Chakra Petch` UI type
-- Grid backdrop, CRT scanline overlay, hatch textures, live clock, event ticker
-- Custom frameless titlebar, toast system, modal system, square checkboxes/scrollbars
+The app queries local operating-system tools. A command may be unavailable, return partial information or require permissions; unknown status is reported as unknown rather than treated as a clean result. File scans are streamed and bounded by time, depth and file-count limits, and report skipped paths or partial coverage. Update installation and firewall changes can require administrator approval and may be unsupported on a given machine.
 
-## Run it
+File cleanup is deliberately conservative: the app accepts only candidates from a recent junk scan, revalidates them before acting, rejects symbolic links or changed files, and moves selected files to the system Trash after a native confirmation. Large-file and duplicate scans are informational and have no delete action. Review candidates before moving them.
+
+The security report contains a small summary, not raw logs, usernames, hostnames, executable paths, process names or remote addresses. The application shell currently loads its interface fonts from Google Fonts when available; the scanner itself does not upload scan results or connect to a service operated by AEGIS.
+
+## Run and test
+
+Requirements: Node.js `>=22.12.0` and npm.
 
 ```bash
-npm install
+npm ci
 npm start          # launch the desktop app
-npm run scan       # run the engine standalone (CLI health report)
-npm test           # headless smoke test: boots the full UI in jsdom, walks every
-                   # route, exercises gating + checkout (33 checks)
+npm run scan       # standalone local scan (may take up to around two minutes)
+npm test           # headless renderer and scanner regression tests
+npm run check      # JavaScript syntax checks
+npm run demo       # rebuild the self-contained browser demo
 ```
 
-Open **`demo.html`** in any browser for a full mock-data preview of the UI — it is **self-contained**
-(all CSS/JS/mock data inlined, so it also works in sandboxed preview iframes where external
-files never load). After editing the UI, regenerate it with `npm run demo`.
+`demo.html` is a browser-only mock preview. It never changes real files, stops processes or installs software. Regenerate it after UI changes with `npm run demo`.
 
-## Build & sell it
+## Package builds
+
+Run the appropriate build on the target platform:
 
 ```bash
-npm run dist:win     # .exe installer (NSIS) + portable
-npm run dist:mac     # .dmg + .zip
-npm run dist:linux   # AppImage + .deb + .rpm
+npm run dist:win     # NSIS installer + portable package
+npm run dist:mac     # DMG + ZIP
+npm run dist:linux   # AppImage + DEB + RPM
 ```
 
-Artifacts land in `release/`. Code-signing and notarization configs slot into `package.json → build` (`signingCustomizationOptions` / `notarization` credentials) — required for store distribution and to avoid "unknown publisher" warnings.
+Build artifacts are written to `release/`. The repository does not yet configure code signing, macOS notarization or an update-distribution service. Before distributing releases, test installation and security dialogs on each target OS and configure platform signing/notarization as required.
 
-## Business model (freemium, wired in the UI)
+## Security implementation notes
 
-- **FREE** — full scans and inventory, but results are capped (8 rows), and these are locked behind the PRO modal:
-  one-click junk cleaning, application uninstall, install-all updates, automatic firewall repair, report export
-- **PRO — $29.99 one-time** (1 device) / **PRO Team — $79.99** (5 devices)
-  Checkout is implemented end-to-end (plan picker, card form with live formatting + validation, license-key activation, persistence in `userData/license.json`, deactivate). It is a **demo checkout** — plug in Stripe/Lemon Squeezy/Paddle and call their API from `activateLicense()` to go live.
-
-Suggested retail positioning: *"The system command center for people who refuse to install three sketchy 'PC optimizers'."*
+- Electron uses context isolation, renderer sandboxing, disabled Node integration, a restrictive Content Security Policy, blocked navigation/popups/embedded webviews and a method-specific preload bridge (no generic renderer IPC channel).
+- IPC handlers require the expected local app frame. Privileged changes use native confirmation dialogs. App removals use opaque IDs from a fresh inventory rather than accepting uninstall commands from the renderer.
+- External commands use argument arrays rather than shell interpolation. Destructive filesystem actions are restricted to revalidated scan-session candidates and use the OS Trash.
+- The check is useful as a local inventory aid, not as a substitute for an independently maintained endpoint-protection product or professional security review.
 
 ## Project structure
 
-```
+```text
 aegis-sentinel/
-├── main.js            # Electron main: frameless window, IPC API, license store
-├── preload.js         # contextBridge (contextIsolation ON)
-├── lib/scanner.js     # cross-platform system engine (pure Node, CLI-testable)
+├── main.js             # Electron window, hardened IPC handlers and confirmations
+├── preload.js          # fixed, named contextBridge methods
+├── lib/scanner.js      # cross-platform local system engine
 ├── src/
-│   ├── index.html     # app shell (sidebar / titlebar / view / statusbar)
-│   ├── styles.css     # angular SOC design system
-│   └── renderer.js    # SPA: 7 modules + PRO upsell/checkout
-├── test/smoke.js      # jsdom end-to-end smoke test (33 checks)
-├── demo.html          # browser preview with mock IPC data
-└── assets/icon.png    # app icon (used by electron-builder for all targets)
+│   ├── index.html       # app shell
+│   ├── styles.css       # Angular SOC design system
+│   └── renderer.js      # seven V1 modules
+├── test/smoke.js        # jsdom UI and scanner regression checks
+├── demo.template.html   # mock browser preview template
+├── demo.html            # generated, self-contained demo
+└── assets/icon.png      # app icon
 ```
 
-## Roadmap to v1.1 (sellable deltas)
+## Legal
 
-1. **Real-time shield** — tray icon + watcher on processes/ports/startup items
-2. **Auto-update** — `electron-updater` with a release server
-3. **Code signing** — Windows EV cert + Apple Developer notarization
-4. **Localization** — FR/AR/DE packs (the UI strings are centralized in `renderer.js`)
-5. **White-label** — themable accent color + product name via config
-6. **Store listings** — Microsoft Store / Mac App Store / Snapcraft ready targets
-
-## License
-
-Proprietary — © 2026 AEGIS Labs. All rights reserved.
+The repository's software license remains **Proprietary — © 2026 AEGIS Labs**. This legal notice is separate from in-app licensing: the V1 application has no license-key, subscription, checkout or paid-feature mechanism.

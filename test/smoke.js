@@ -1,207 +1,341 @@
 'use strict';
-/* Headless smoke test: boots the real renderer in jsdom with a stubbed IPC bridge,
- * walks every route, and exercises the freemium / checkout flows. */
+/*
+ * Headless smoke + scanner regression tests for the first public version.
+ * Boots the real renderer with a stub matching the restricted preload API,
+ * then covers UI routes, file-scan flows, audit summaries, and scanner bounds.
+ */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
+const scanner = require('../lib/scanner');
 
 const ROOT = path.join(__dirname, '..');
 const errors = [];
-
-const sysInfo = {
-  hostname: 'testbox', platform: 'linux', platformLabel: 'Linux', arch: 'x64',
-  release: '6.1.0', cpus: 8, cpuModel: 'Test CPU x8', totalRam: 16 * 1024 ** 3,
-  freeRam: 8 * 1024 ** 3, uptimeSec: 3600, user: 'tester', homedir: '/home/tester',
-  osCaption: 'Debian GNU/Linux 13', osBuild: '1', machineModel: 'TestBox', gpu: 'Test GPU',
-};
-const procClean = { pid: 1, name: 'init', cpu: 0.2, memBytes: 2048, path: '/sbin/init', company: 'systemd', product: '', suspicion: 0, suspicionLevel: 'clean', flags: [] };
-const procBad = { pid: 99, name: 'xmrig', cpu: 95, memBytes: 500 * 1024 ** 2, path: '/tmp/xmrig', company: '', product: '', suspicion: 95, suspicionLevel: 'critical', flags: ['Name matches a known cryptominer signature', 'Executable located in a temporary directory'] };
-const scanQuick = {
-  system: sysInfo,
-  disks: [{ device: '/dev/sda', mount: '/', label: '/', size: 100 * 1024 ** 3, used: 40 * 1024 ** 3, free: 60 * 1024 ** 3 }],
-  processes: [procClean, procBad],
-  suspicious: [procBad],
-  firewall: { enabled: true, profiles: [{ name: 'ufw', enabled: true }], details: 'ufw active' },
-  encryption: { enabled: true, details: 'LUKS encrypted volume detected' },
-  updates: { items: [], history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, note: 'up to date' },
-  errors: { items: [{ time: '2026-10-09 10:00', source: 'kernel', id: '', message: 'test error event' }], window: '24h' },
-  networkSummary: { connections: 12, listening: 3 },
-  junk: { scanned: 1000, reclaimable: 5 * 1024 ** 3, count: 42, truncated: false },
-  score: { score: 88, grade: 'A', findings: [{ sev: 'warning', msg: '1 system error(s) in the last 24h', pts: 1 }] },
-  durationMs: 1200,
-};
-
-const canned = {
-  'license:get': { tier: 'free', key: null, since: null },
-  'license:set': (p) => p,
-  'sys:info': sysInfo,
-  'scan:quick': scanQuick,
-  'proc:list': [procClean, procBad],
-  'apps:list': [
-    { name: 'Firefox', version: '130.0', publisher: 'Mozilla', size: 200 * 1024 ** 2, flags: [], uninstallString: '', package: 'firefox', path: '' },
-    { name: 'Super Toolbar Free', version: '1.0', publisher: '', size: 0, flags: [{ label: 'Possible bloatware', sev: 'high' }], uninstallString: '', package: '', path: '' },
-  ],
-  'net:list': {
-    connections: [
-      { proto: 'TCP', local: '0.0.0.0:22', remote: '0.0.0.0:*', state: 'LISTEN', pid: 900, process: 'sshd' },
-      { proto: 'TCP', local: '10.0.0.2:51234', remote: '1.2.3.4:443', state: 'ESTABLISHED', pid: 901, process: 'firefox' },
-    ],
-    listening: [{ proto: 'TCP', local: '0.0.0.0:22', remote: '', state: 'LISTEN', pid: 900, process: 'sshd' }],
-  },
-  'fw:status': { enabled: true, profiles: [{ name: 'ufw', enabled: true }], details: 'ufw active' },
-  'fw:enable': { ok: true, error: null },
-  'enc:status': { enabled: true, details: 'LUKS encrypted volume detected' },
-  'updates:check': { items: [{ name: 'openssl', version: '3.0.15', source: 'apt (stable)' }], history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, note: '1 package update available' },
-  'updates:install': { ok: true, note: 'started' },
-  'errors:list': { items: [{ time: '2026-10-09 10:00', source: 'kernel', id: '', message: 'test error event' }], window: '24h' },
-  'disk:usage': [{ device: '/dev/sda', mount: '/', label: '/', size: 100 * 1024 ** 3, used: 40 * 1024 ** 3, free: 60 * 1024 ** 3 }],
-  'scan:files': {
-    mode: 'junk', roots: ['/tmp'], scanned: 10, bytes: 4096, truncated: false, durationMs: 50,
-    count: 12, reclaimable: 2048,
-    results: Array.from({ length: 12 }, (_, i) => ({ path: '/tmp/junk-' + i + '.log', size: 100 + i, kind: 'Log file' })),
-  },
-  'files:clean': { removed: 3, failed: 0, bytes: 300 },
-  'proc:kill': { ok: true, error: null },
-  'apps:uninstall': { ok: true, error: null },
-  'dialog:pickDir': null,
-  'report:save': '/tmp/aegis-report.json',
-};
-
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
-const check = (name, cond) => {
-  console.log((cond ? '  PASS ' : '  FAIL ') + name);
-  if (!cond) failures++;
+const check = (name, condition) => {
+  console.log((condition ? '  PASS ' : '  FAIL ') + name);
+  if (!condition) failures++;
 };
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-(async () => {
-  let html = fs.readFileSync(path.join(ROOT, 'src', 'index.html'), 'utf8');
-  html = html.replace('<script src="./renderer.js"></script>', '');
+function makeBridge(canned, calls) {
+  const call = (channel, payload) => {
+    calls.push({ channel, payload });
+    const value = canned[channel];
+    if (value === undefined) return Promise.resolve({ ok: false, error: 'unknown operation' });
+    return Promise.resolve({ ok: true, data: typeof value === 'function' ? value(payload) : value });
+  };
+  return Object.freeze({
+    getSystemInfo: () => call('sys:info'), getDiskUsage: () => call('disk:usage'),
+    quickScan: () => call('scan:quick'), scanFiles: (payload) => call('scan:files', payload), cleanFiles: (payload) => call('files:clean', payload),
+    listProcesses: () => call('proc:list'), killProcess: (payload) => call('proc:kill', payload),
+    listApps: () => call('apps:list'), uninstallApp: (payload) => call('apps:uninstall', payload),
+    getNetwork: () => call('net:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
+    getEncryption: () => call('enc:status'), checkUpdates: () => call('updates:check'), installUpdates: () => call('updates:install'),
+    getSystemErrors: () => call('errors:list'), pickDirectory: () => call('dialog:pickDir'), saveReport: (payload) => call('report:save', payload),
+    minimize: () => call('win:minimize'), toggleMaximize: () => call('win:toggleMax'), close: () => call('win:close'),
+  });
+}
 
-  const vc = new VirtualConsole();
-  vc.on('jsdomError', (e) => errors.push('jsdomError: ' + e.message));
-  vc.on('error', (m) => errors.push('console.error: ' + m));
+async function scannerTests() {
+  console.log('== scanner unit/regression checks ==');
+  const netstat = [
+    'Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name',
+    'tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      812/sshd',
+    'tcp6       0      0 :::443                  :::*                    LISTEN      920/nginx',
+    'udp        0      0 127.0.0.1:5353          0.0.0.0:*                           742/avahi-daemon',
+  ].join('\n');
+  const parsed = scanner.parseNetstatOutput(netstat);
+  check('netstat fallback captures TCP remote address and queue-state fields', parsed[0] && parsed[0].remote === '0.0.0.0:*' && parsed[0].state === 'LISTEN');
+  check('netstat fallback parses PID/program', parsed[0] && parsed[0].pid === 812 && parsed[0].process === 'sshd');
+  check('netstat fallback handles IPv6 TCP', parsed[1] && parsed[1].proto === 'TCP' && parsed[1].local === ':::443' && parsed[1].pid === 920);
+  check('netstat fallback handles UDP with blank state', parsed[2] && parsed[2].state === 'UNCONN' && parsed[2].pid === 742);
+  const winArgs = scanner.parseWindowsCommandLine('\"C:\\Program Files\\Example\\uninstall.exe\" /quiet /log \"C:\\Program Files\\Example\\uninstall.log\"');
+  check('Windows uninstall command parsing preserves quoted paths as arguments', winArgs.length === 4 && winArgs[0] === 'C:\\Program Files\\Example\\uninstall.exe' && winArgs[3] === 'C:\\Program Files\\Example\\uninstall.log');
+  check('Windows uninstall command parser rejects unbalanced quotes', scanner.parseWindowsCommandLine('\"C:\\broken\\uninstall.exe /quiet').length === 0);
 
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aegis-smoke-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'nested'));
+    const old = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const topJunk = path.join(tmp, 'top.tmp');
+    const nestedJunk = path.join(tmp, 'nested', 'nested.tmp');
+    fs.writeFileSync(topJunk, 'top junk');
+    fs.writeFileSync(nestedJunk, 'nested junk');
+    fs.utimesSync(topJunk, old, old);
+    fs.utimesSync(nestedJunk, old, old);
+
+    const depthScan = await scanner.scanFiles({ mode: 'junk', roots: [tmp], maxDepth: 0, maxMs: 1 });
+    check('scan maxDepth=0 does not descend into child directories', depthScan.scanned === 1 && depthScan.results.some((item) => item.path === topJunk));
+    check('scan limits are clamped to safe engine bounds', depthScan.maxDepth === 0 && depthScan.maxMs === 1000);
+    const fullScan = await scanner.scanFiles({ mode: 'junk', roots: [tmp], maxDepth: 1, maxMs: 5000 });
+    check('junk scan detects old files at permitted depth', fullScan.count === 2 && fullScan.results.every((item) => item.mtimeMs));
+    check('accessible scan roots are explicitly marked complete', fullScan.available === true && fullScan.incomplete === false && fullScan.skipped === 0);
+    const validated = await scanner.validateCleanCandidates([topJunk], fullScan.results, fullScan.roots);
+    check('cleanup accepts a candidate from the matching scan', validated.length === 1 && validated[0] === topJunk);
+    let rejected = false;
+    try { await scanner.validateCleanCandidates([path.join(tmp, 'nested', 'not-scanned.tmp')], fullScan.results, fullScan.roots); }
+    catch { rejected = true; }
+    check('cleanup rejects a path that was not scanned', rejected);
+
+    const duplicateA = path.join(tmp, 'same-a.bin');
+    const duplicateB = path.join(tmp, 'same-b.bin');
+    fs.writeFileSync(duplicateA, 'same-content');
+    fs.writeFileSync(duplicateB, 'same-content');
+    const crowdedDuplicateContent = 'many-identical-files-content';
+    for (let i = 0; i < 25; i++) fs.writeFileSync(path.join(tmp, 'same-large-group-' + i + '.bin'), crowdedDuplicateContent);
+    const duplicateScan = await scanner.scanFiles({ mode: 'duplicates', roots: [tmp], maxDepth: 1, maxMs: 5000 });
+    check('duplicate scan groups identical content using a full hash', duplicateScan.results.some((group) => group.files && group.files.length === 2 && group.wasted === Buffer.byteLength('same-content')));
+    check('large duplicate groups bound the displayed path list but preserve copy and space counts', duplicateScan.results.some((group) => group.count === 25 && group.files.length === 20 && group.omitted === 5 && group.wasted === Buffer.byteLength(crowdedDuplicateContent) * 24));
+
+    fs.writeFileSync(topJunk, 'changed after scan');
+    let changedRejected = false;
+    try { await scanner.validateCleanCandidates([topJunk], fullScan.results, fullScan.roots); }
+    catch { changedRejected = true; }
+    check('cleanup rejects a candidate changed since scanning', changedRejected);
+
+    const bulk = path.join(tmp, 'bulk');
+    fs.mkdirSync(bulk);
+    const bulkOld = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    for (let i = 0; i < 2001; i++) {
+      const file = path.join(bulk, 'candidate-' + i + '.tmp');
+      fs.writeFileSync(file, 'x');
+      fs.utimesSync(file, bulkOld, bulkOld);
+    }
+    const limited = await scanner.scanFiles({ mode: 'junk', roots: [bulk], maxDepth: 0, maxMs: 60000 });
+    check('file result cap reports partial coverage instead of implying a complete empty/short list', limited.count === 2001 && limited.results.length === 2000 && limited.truncated && limited.incomplete);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  const unknownScore = scanner.computeHealthScore({ system: {}, disks: [], processes: [], firewall: { enabled: null }, encryption: { enabled: null }, updates: { checkStatus: 'error' }, errors: { available: false } });
+  check('unknown security signals reduce score and include a heuristic disclaimer', unknownScore.score < 100 && /not an antivirus/i.test(unknownScore.disclaimer));
+  check('health-score findings do not claim malware detection', !unknownScore.findings.some((finding) => /malware found|virus detected/i.test(finding.msg)));
+  const processUnknownScore = scanner.computeHealthScore({
+    system: { totalRam: 8 * 1024 ** 3, freeRam: 4 * 1024 ** 3 }, disks: [{ mount: '/', size: 100, used: 30 }],
+    processes: [], processesAvailable: false, firewall: { enabled: true, verified: true }, encryption: { enabled: true },
+    updates: { checkStatus: 'ok', items: [], rebootRequired: false }, errors: { available: true, count24h: 0 },
+    networkSummary: { available: true, exposed: 0 },
+  });
+  check('unavailable process inventory is an explicit posture finding', processUnknownScore.findings.some((finding) => /Process inventory could not be read/.test(finding.msg)));
+  let liveSnapshot = null;
+  try { liveSnapshot = await scanner.getProcessSnapshot(); } catch { /* an OS collector failure still must not produce an empty clean result */ }
+  check('live process collector always returns an explicit availability snapshot', !!liveSnapshot && typeof liveSnapshot.available === 'boolean' && Array.isArray(liveSnapshot.items));
+  if (scanner.IS_LINUX && liveSnapshot && liveSnapshot.available) {
+    check('Linux process snapshots include stable start identities for PID reuse checks', liveSnapshot.items.some((process) => /^\d+$/.test(process.startId || '')));
+  }
+}
+
+async function rendererTests() {
+  console.log('== renderer smoke checks ==');
+  const GiB = 1024 ** 3;
+  const sysInfo = {
+    hostname: 'testbox', platform: 'linux', platformLabel: 'Linux', arch: 'x64', release: '6.1.0',
+    cpus: 8, cpuModel: 'Test CPU x8', totalRam: 16 * GiB, freeRam: 8 * GiB,
+    uptimeSec: 3600, user: 'tester', homedir: '/home/tester', osCaption: 'Debian GNU/Linux 13',
+    osBuild: '1', machineModel: 'TestBox', gpu: 'Test GPU',
+  };
+  const clean = { pid: 1, name: 'init', cpu: 0.2, memBytes: 2048, path: '/sbin/init', company: 'systemd', product: '', suspicion: 0, suspicionLevel: 'clean', flags: [], canStop: false };
+  const flagged = { pid: 99, name: 'xmrig', cpu: 95, memBytes: 500 * 1024 ** 2, path: '/tmp/xmrig', company: '', product: '', suspicion: 95, suspicionLevel: 'critical', flags: ['Cryptominer keyword heuristic', 'Temporary-directory execution heuristic'], canStop: true };
+  const processes = [clean, flagged];
+  const disks = [{ device: '/dev/sda', mount: '/', label: '/', size: 100 * GiB, used: 40 * GiB, free: 60 * GiB, isSystem: true }];
+  const firewall = { enabled: true, verified: true, profiles: [{ name: 'ufw', enabled: true }], details: 'Firewall active; default inbound policy verified' };
+  const encryption = { enabled: true, details: 'LUKS encrypted volume detected' };
+  const updates = { items: [{ name: 'openssl', version: '3.0.15', source: 'apt (stable)' }], history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, checkStatus: 'ok', note: '1 package update available' };
+  const errorItems = [{ time: '2026-10-09 10:00', source: 'kernel', id: '', message: 'test error event' }];
+  const errorsData = { items: errorItems, count24h: 1, available: true, window: '24h' };
+  const connections = [
+    { proto: 'TCP', local: '0.0.0.0:22', remote: '0.0.0.0:*', state: 'LISTEN', pid: 900, process: 'sshd' },
+    { proto: 'TCP', local: '127.0.0.1:5432', remote: '0.0.0.0:*', state: 'LISTEN', pid: 901, process: 'postgres' },
+    { proto: 'TCP', local: '10.0.0.2:51234', remote: '1.2.3.4:443', state: 'ESTABLISHED', pid: 902, process: 'firefox' },
+  ];
+  const network = { connections, listening: connections.slice(0, 2), exposed: [connections[0]], available: true, error: null };
+  const junkRows = Array.from({ length: 12 }, (_, index) => ({ path: '/tmp/old-junk-' + index + '.tmp', size: 100 + index, kind: 'Temporary / backup file', mtimeMs: Date.now() - 3 * 86400000 }));
+  const filesPayloads = [];
+  const cleanPayloads = [];
+  const uninstallPayloads = [];
+  const reportPayloads = [];
+  const scanQuick = {
+    system: sysInfo, systemDisk: disks[0], disks, processesAvailable: true, processError: null, processes, suspicious: [flagged],
+    firewall, encryption, updates, errors: errorsData,
+    networkSummary: { connections: 3, listening: 2, exposed: 1, available: true },
+    junk: { available: true, incomplete: false, skipped: 0, error: null, scanned: 1000, reclaimable: 5 * GiB, count: 42, truncated: false },
+    score: { score: 88, grade: 'A', findings: [{ sev: 'warning', msg: 'One process matched heuristic risk indicators', pts: 1 }], disclaimer: 'Heuristic posture indicator only; not an antivirus or a guarantee of security.' },
+    durationMs: 1200,
+  };
+  const apps = [
+    { id: 'app-firefox', name: 'Firefox', version: '130.0', publisher: 'Mozilla', size: 200 * 1024 ** 2, flags: [], package: 'firefox', path: '', uninstallMethod: 'apt', canUninstall: true },
+    { id: 'app-toolbar', name: 'Super Toolbar Free', version: '1.0', publisher: '', size: 0, flags: [{ label: 'Possible bloatware (heuristic)', sev: 'high' }], package: '', path: '', canUninstall: false },
+  ];
+  const scanFiles = (payload) => {
+    filesPayloads.push(payload);
+    const mode = payload.mode || 'junk';
+    const results = mode === 'junk' ? junkRows : mode === 'large'
+      ? [{ path: '/home/tester/large.iso', size: 900 * 1024 ** 2, kind: 'Large file (>= 100 MB)' }]
+      : [{ kind: 'Duplicate group x2', size: 500, wasted: 500, count: 2, files: ['/home/tester/a.bin', '/home/tester/b.bin'] }];
+    return { available: true, incomplete: false, skipped: 0, error: null, mode, roots: payload.roots || ['/tmp'], scanned: 10, bytes: 4096, truncated: false, durationMs: 50, count: results.length, reclaimable: mode === 'junk' ? 2048 : 0, minJunkAgeMs: 86400000, scanToken: mode === 'junk' ? 'smoke-session-token' : undefined, results };
+  };
+  const canned = {
+    'sys:info': sysInfo,
+    'disk:usage': disks,
+    'scan:quick': scanQuick,
+    'scan:files': scanFiles,
+    'files:clean': (payload) => { cleanPayloads.push(payload); return { removed: payload.paths.length, failed: 0, bytes: 300 }; },
+    'proc:list': { available: true, items: processes, error: null },
+    'proc:kill': { ok: true, error: null },
+    'apps:list': apps,
+    'apps:uninstall': (payload) => { uninstallPayloads.push(payload); return { ok: true, error: null }; },
+    'net:list': network,
+    'fw:status': firewall,
+    'fw:enable': { ok: true, error: null },
+    'enc:status': encryption,
+    'updates:check': updates,
+    'updates:install': { ok: true, note: 'Mock update action completed' },
+    'errors:list': errorsData,
+    'dialog:pickDir': null,
+    'report:save': (payload) => { reportPayloads.push(payload); return '/tmp/aegis-report.json'; },
+    'win:minimize': null, 'win:toggleMax': null, 'win:close': null,
+  };
+  const calls = [];
+  const html = fs.readFileSync(path.join(ROOT, 'src', 'index.html'), 'utf8').replace('<script src="./renderer.js"></script>', '');
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on('jsdomError', (error) => errors.push('jsdomError: ' + error.message));
+  virtualConsole.on('error', (message) => errors.push('console.error: ' + message));
   const dom = new JSDOM(html, {
-    url: 'file://' + path.join(ROOT, 'src', 'index.html'),
-    runScripts: 'dangerously',
-    pretendToBeVisual: true,
-    virtualConsole: vc,
+    url: 'file://' + path.join(ROOT, 'src', 'index.html'), runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole,
   });
   const { window } = dom;
-  window.addEventListener('error', (e) => errors.push('window.onerror: ' + e.message));
-  process.on('uncaughtException', (e) => errors.push('uncaught: ' + (e && e.stack || e)));
+  window.addEventListener('error', (event) => errors.push('window.onerror: ' + event.message));
+  window.aegis = makeBridge(canned, calls);
+  window.eval(fs.readFileSync(path.join(ROOT, 'src', 'renderer.js'), 'utf8'));
+  const $ = (selector) => window.document.querySelector(selector);
+  const $$ = (selector) => [...window.document.querySelectorAll(selector)];
+  const click = (element) => { if (element) element.dispatchEvent(new window.MouseEvent('click', { bubbles: true })); };
+  const navTo = async (route) => { click($(`.nav-item[data-route="${route}"]`)); await sleep(350); };
 
-  // stub the IPC bridge before the renderer boots
-  window.aegis = {
-    invoke: (channel, payload) => {
-      const v = canned[channel];
-      if (v === undefined) return Promise.resolve({ ok: false, error: 'unknown channel ' + channel });
-      return Promise.resolve({ ok: true, data: typeof v === 'function' ? v(payload) : v });
-    },
-    on: () => () => {},
-  };
-
-  const rendererSrc = fs.readFileSync(path.join(ROOT, 'src', 'renderer.js'), 'utf8');
-  window.eval(rendererSrc);
-
-  const $ = (s) => window.document.querySelector(s);
-  const $$ = (s) => [...window.document.querySelectorAll(s)];
-  const click = (el) => el.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  const navTo = async (route) => {
-    const btn = $(`.nav-item[data-route="${route}"]`);
-    click(btn);
-    await sleep(450);
-  };
-
-  console.log('== boot & dashboard ==');
-  await sleep(1800); // boot + first quick scan (has ~0.7s of staged console sleeps)
-  check('dashboard renders system overview', $('#view').innerHTML.includes('System Overview'));
-  check('health score 88 rendered', $('#view').innerHTML.includes('88'));
-  check('grade A rendered', $('#view').innerHTML.includes('GRADE A'));
-  check('suspicious process xmrig listed', $('#view').innerHTML.includes('xmrig'));
-  check('gauge has 25 segments', $$('.gauge i').length === 25);
-  check('live ticker present', $$('.ticker-track span').length > 10);
-  check('statusbar shows OS', $('#sb-os').textContent.includes('Debian'));
-  check('license chip = FREE', $('#lic-label').textContent.includes('FREE'));
-
-  console.log('== route tour ==');
-  await navTo('files');
-  check('files view renders', $('#view').innerHTML.includes('File Scanner'));
-  await navTo('processes');
-  check('processes view renders rows', $$('#view table.data tbody tr').length >= 2);
-  check('suspicious row flagged critical', $('#view').innerHTML.includes('row-crit'));
-  await navTo('apps');
-  check('apps view renders rows', $$('#view table.data tbody tr').length === 2);
-  check('bloatware flag shown', $('#view').innerHTML.includes('Possible bloatware'));
-  await navTo('network');
-  check('network view renders firewall card', $('#view').innerHTML.includes('Firewall Status'));
-  check('listening port chip 22 shown', $('#view').innerHTML.includes('sshd'));
-  check('connections table rendered', $$('#n-tbody tr').length === 2);
-  await navTo('updates');
-  check('updates view renders pending item', $('#view').innerHTML.includes('openssl'));
-  await navTo('audit');
-  check('audit view shows run button', !!$('#au-run'));
-  await navTo('pro');
-  check('pro view renders pricing', $('#view').innerHTML.includes('$29.99') && $('#view').innerHTML.includes('$79.99'));
-
-  console.log('== freemium gating ==');
-  await navTo('dashboard');
-  click($('[data-act="junk"]'));
-  await sleep(200);
-  check('gated action opens PRO modal', $('#modal-root').innerHTML.includes('PRO feature'));
-  click($('#modal-bg'));
-  await sleep(150);
-  check('modal closes', $('#modal-root').innerHTML === '');
+  await sleep(1400);
+  check('dashboard loads the system overview', $('#view').innerHTML.includes('System Overview'));
+  check('health score and grade display', $('#view').innerHTML.includes('88') && $('#view').innerHTML.includes('GRADE A'));
+  check('heuristic risk signal is displayed without malware verdict language', $('#view').innerHTML.includes('xmrig') && $('#view').innerHTML.includes('Heuristic posture indicator'));
+  check('first-version sidebar has no paid edition, license or upgrade item', !$('.nav-item[data-route="pro"]') && !$('.lic-chip') && !$('#view').innerHTML.includes('Unlock PRO'));
+  check('renderer receives a named method surface, not generic invoke IPC', typeof window.aegis.invoke === 'undefined' && calls.some((call) => call.channel === 'scan:quick'));
 
   await navTo('files');
   click($('#f-scan'));
-  await sleep(900);
-  const fileRows = $$('#view table.data tbody tr');
-  check('free scan shows only 8 rows + locked row', fileRows.length === 9);
-  check('locked row present', $('#view').innerHTML.includes('UNLOCK PRO'));
-  click($('[data-unlock]'));
-  await sleep(200);
-  check('unlock opens PRO modal', $('#modal-root').innerHTML.includes('PRO'));
-  click($('#modal-bg'));
+  await sleep(150);
+  check('file scan shows all 12 cleanup candidates without an artificial row cap', $$('#view table.data tbody tr').length === 12 && !$('#view').innerHTML.includes('locked'));
+  check('cleanup candidates require selection before use', !!$('#btn-clean') && $('#btn-clean').disabled);
+  click($('#sel-all'));
+  check('select-all enables move-to-Trash action', !$('#btn-clean').disabled);
+  click($('#btn-clean'));
+  await sleep(80);
+  check('cleanup passes only selected paths and the scan-session token', cleanPayloads.length === 1 && cleanPayloads[0].scanToken === 'smoke-session-token' && cleanPayloads[0].paths.length === 12);
+  check('cleanup clears its prior result after completion', !$('#btn-clean'));
 
-  console.log('== audit ==');
+  $('#f-mode').value = 'large';
+  click($('#f-scan'));
+  await sleep(100);
+  check('large-file mode is informational and cannot be cleaned', $('#view').innerHTML.includes('large.iso') && !$('#btn-clean'));
+  $('#f-mode').value = 'duplicates';
+  click($('#f-scan'));
+  await sleep(100);
+  check('duplicate mode renders a grouped full-hash result without destructive controls', $('#view').innerHTML.includes('Duplicate group x2') && !$('#btn-clean'));
+
+  await navTo('processes');
+  check('process inventory table renders', $$('#view table.data tbody tr').length === 2 && $('#view').innerHTML.includes('HEURISTIC SNAPSHOT'));
+  const goodProcessSnapshot = canned['proc:list'];
+  canned['proc:list'] = { available: false, items: [], error: 'permission denied' };
+  click($('#p-refresh'));
+  await sleep(80);
+  check('process read failure is shown as unavailable, not as a clean empty list', $('#view').innerHTML.includes('PROCESS INVENTORY UNAVAILABLE'));
+  canned['proc:list'] = goodProcessSnapshot;
+  click($('#p-refresh'));
+  await sleep(80);
+  check('process inventory can be refreshed after an unavailable result', $$('#view table.data tbody tr').length === 2);
+  await navTo('apps');
+  check('application inventory renders and unsupported removals are disabled', $$('#view table.data tbody tr').length === 2 && $('button[data-uninstall="app-toolbar"]').disabled);
+  click($('button[data-uninstall="app-firefox"]'));
+  await sleep(80);
+  check('application removal uses an opaque catalog id', uninstallPayloads.length === 1 && uninstallPayloads[0].id === 'app-firefox');
+  $('#a-filter').value = 'no-such-application';
+  $('#a-filter').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  check('application search reports an empty filter result instead of an empty inventory', $('#view').innerHTML.includes('NO APPLICATIONS MATCH THE FILTER'));
+  $('#a-filter').value = '';
+  $('#a-filter').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  const goodApps = canned['apps:list'];
+  const appCallsBeforeEmpty = calls.filter((entry) => entry.channel === 'apps:list').length;
+  canned['apps:list'] = [];
+  click($('#a-refresh'));
+  await sleep(80);
+  const appCallsAfterEmpty = calls.filter((entry) => entry.channel === 'apps:list').length;
+  check('an empty application inventory settles without recursively reloading forever', appCallsAfterEmpty === appCallsBeforeEmpty + 1 && $('#view').innerHTML.includes('NO APPLICATIONS REPORTED'));
+  canned['apps:list'] = goodApps;
+  click($('#a-refresh'));
+  await sleep(80);
+  check('application inventory can refresh from an empty result', $$('#view table.data tbody tr').length === 2);
+
+  await navTo('network');
+  check('network view shows firewall verification caveat', $('#view').innerHTML.includes('Firewall Status') && $('#view').innerHTML.includes('default inbound policy verified'));
+  check('network view distinguishes non-loopback listeners', $('#view').innerHTML.includes('1 bound to a non-loopback address') && $$('#n-tbody tr').length === 3);
+  const goodNetworkSnapshot = canned['net:list'];
+  canned['net:list'] = null;
+  click($('#n-refresh'));
+  await sleep(80);
+  check('network query failures render an explicit unavailable state instead of an endless spinner', $('#view').innerHTML.includes('Network endpoint query failed') && !$('#view').innerHTML.includes('Mapping network connections'));
+  canned['net:list'] = goodNetworkSnapshot;
+  click($('#n-refresh'));
+  await sleep(80);
+
+  await navTo('updates');
+  check('updates view renders pending OS update and installation is available', $('#view').innerHTML.includes('openssl') && !$('#u-install').disabled);
+  click($('#u-install'));
+  await sleep(80);
+  check('updates action goes through the named preload method', calls.some((call) => call.channel === 'updates:install'));
+
   await navTo('audit');
   click($('#au-run'));
-  await sleep(900);
-  check('audit produced 7 checks', $$('.audit-item').length === 7);
-  check('audit shows suspicious process finding', $('#view').innerHTML.includes('xmrig'));
+  await sleep(100);
+  check('audit yields seven local checks with heuristic disclaimer', $$('.audit-item').length === 7 && $('#view').innerHTML.includes('not an antivirus'));
+  check('audit process-risk finding is explicitly heuristic', $('#view').innerHTML.includes('matched simple name/path/resource heuristics'));
+  click($('#au-export'));
+  await sleep(80);
+  const report = reportPayloads[0];
+  check('exported report omits raw host/user/path/process/log/network details', !!report && !JSON.stringify(report).includes('tester') && !JSON.stringify(report).includes('/home/') && !JSON.stringify(report).includes('xmrig') && !JSON.stringify(report).includes('1.2.3.4') && !JSON.stringify(report).includes('test error event'));
+  check('audit report documents its privacy limitation', !!report && /omits hostname/.test(report.privacyNote));
 
-  console.log('== checkout (demo) ==');
-  await navTo('pro');
-  $('#ck-name').value = 'Alex Martin';
-  $('#ck-email').value = 'alex@studio.com';
-  $('#ck-card').value = '4242424242424242';
-  $('#ck-exp').value = '08/28';
-  $('#ck-cvc').value = '123';
-  click($('#ck-pay'));
-  await sleep(500);
-  check('license activated (chip = PRO)', $('#lic-label').textContent.includes('PRO'));
-  check('pro view shows ACTIVE', $('#view').innerHTML.includes('ALL MODULES UNLOCKED'));
-  check('license key generated', /AEGIS-[A-Z2-9]{4}-/.test($('#view').innerHTML));
+  canned['proc:list'] = { available: false, items: [], error: 'permission denied' };
+  canned['net:list'] = { available: false, connections: [], listening: [], exposed: [], error: 'query denied' };
+  canned['updates:check'] = { items: [], history: [], checkStatus: 'error', note: 'Update service unavailable', rebootRequired: null };
+  click($('#au-again'));
+  await sleep(100);
+  click($('#au-export'));
+  await sleep(80);
+  const unknownReport = reportPayloads[1];
+  check('audit export preserves unavailable counts as unknown instead of zero', !!unknownReport && unknownReport.counts.pendingUpdates === null && unknownReport.counts.processRiskSignals === null && unknownReport.counts.externallyBoundEndpoints === null && unknownReport.counts.listeningEndpoints === null);
+  canned['proc:list'] = goodProcessSnapshot;
+  canned['net:list'] = goodNetworkSnapshot;
+  canned['updates:check'] = updates;
 
-  console.log('== pro unlocks file results ==');
-  await navTo('files');
-  click($('#f-scan'));
-  await sleep(900);
-  check('pro scan shows all 12 rows, no locked row', $$('#view table.data tbody tr').length === 12 && !$('#view').innerHTML.includes('UNLOCK PRO'));
-  check('pro sees delete button', !!$('#btn-clean'));
+  const forbiddenRoutes = ['pro', 'license', 'checkout'];
+  check('no paid-edition routes remain registered in navigation', forbiddenRoutes.every((route) => !$('.nav-item[data-route="' + route + '"]')));
 
-  console.log('== toasts ==');
-  check('toast notifications rendered', $$('.toast').length > 0);
+  dom.window.close();
+}
 
-  console.log('');
+(async () => {
+  await scannerTests();
+  await rendererTests();
   if (errors.length) {
     console.log('RUNTIME ERRORS (' + errors.length + '):');
-    errors.slice(0, 15).forEach((e) => console.log('  ! ' + e));
+    errors.slice(0, 15).forEach((error) => console.log('  ! ' + error));
   }
+  console.log('');
   console.log(failures === 0 && errors.length === 0
     ? 'SMOKE TEST: ALL CHECKS PASSED'
     : `SMOKE TEST: ${failures} check(s) failed, ${errors.length} runtime error(s)`);
   process.exit(failures === 0 && errors.length === 0 ? 0 : 1);
-})().catch((e) => { console.error('SMOKE TEST CRASHED:', e); process.exit(1); });
+})().catch((error) => {
+  console.error('SMOKE TEST CRASHED:', error && error.stack || error);
+  process.exit(1);
+});

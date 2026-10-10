@@ -33,9 +33,6 @@
           <span class="brand-sub">SENTINEL <em id="brand-ver">v1.0.0</em></span>
         </div>
       </div>
-      <div class="lic-chip" id="lic-chip">
-        <span class="lic-dot"></span><span id="lic-label">FREE EDITION</span>
-      </div>
       <nav class="nav" id="nav">
         <button class="nav-item" data-route="dashboard"><span class="nav-idx">01</span> __ICON_GRID__ <span>Dashboard</span></button>
         <button class="nav-item" data-route="files"><span class="nav-idx">02</span> __ICON_FOLDER__ <span>File Scanner</span></button>
@@ -45,9 +42,6 @@
         <button class="nav-item" data-route="audit"><span class="nav-idx">06</span> __ICON_SHIELD__ <span>Security Audit</span></button>
         <button class="nav-item" data-route="updates"><span class="nav-idx">07</span> __ICON_REFRESH__ <span>Updates</span></button>
       </nav>
-      <div class="nav-foot">
-        <button class="nav-item nav-pro" data-route="pro">__ICON_STAR__ <span>AEGIS PRO</span> <span class="pro-arrow">__ICON_ARROW__</span></button>
-      </div>
     </aside>
 
     <div class="main">
@@ -77,40 +71,41 @@
   <div id="toast-root"></div>
 
   <script>
-  /* ---- Demo IPC bridge: rich mock data so the UI can be previewed in a browser ---- */
+  /* ---- Demo IPC bridge: browser-only mock data. It matches the desktop preload API. ---- */
   (function () {
-    const GiB = 1024 * 1024 * 1024;
+    const GiB = 1024 ** 3;
     const sys = {
       hostname: 'DESKTOP-AEGIS', platform: 'linux', platformLabel: 'Linux', arch: 'x64',
       release: '6.8.0', cpus: 16, cpuModel: 'AMD Ryzen 9 7950X 16-Core Processor',
       totalRam: 32 * GiB, freeRam: 11.4 * GiB, uptimeSec: 273840, user: 'alex',
-      homedir: '/home/alex', osCaption: 'Ubuntu 24.04.1 LTS', osBuild: '2024', machineModel: 'ASUS ProArt X670E', gpu: 'NVIDIA GeForce RTX 4080',
+      homedir: '/home/alex', osCaption: 'Ubuntu 24.04.1 LTS', osBuild: '2024',
+      machineModel: 'ASUS ProArt X670E', gpu: 'NVIDIA GeForce RTX 4080',
     };
-    const mkProc = (pid, name, cpu, mem, p, company, susp, level, flags) =>
-      ({ pid, name, cpu, memBytes: mem, path: p, company, product: '', suspicion: susp, suspicionLevel: level, flags });
+    const mkProc = (pid, name, cpu, mem, path, company, suspicion, level, flags) =>
+      ({ pid, name, cpu, memBytes: mem, path, company, product: '', suspicion, suspicionLevel: level, flags, canStop: pid > 4 });
     const procs = [
       mkProc(1, 'systemd', 0.1, 12 * 1024 * 1024, '/usr/lib/systemd/systemd', 'freedesktop', 0, 'clean', []),
       mkProc(742, 'gnome-shell', 6.4, 780 * 1024 * 1024, '/usr/bin/gnome-shell', 'GNOME', 0, 'clean', []),
-      mkProc(1391, 'firefox', 12.8, 2.4 * GiB, '/usr/lib/firefox/firefox', 'Mozilla', 8, 'medium', ['Elevated CPU usage']),
+      mkProc(1391, 'firefox', 12.8, 2.4 * GiB, '/usr/lib/firefox/firefox', 'Mozilla', 8, 'medium', ['Elevated measured CPU usage']),
       mkProc(2210, 'code', 3.1, 1.1 * GiB, '/usr/share/code/code', 'Microsoft', 0, 'clean', []),
       mkProc(3107, 'postgres', 1.9, 340 * 1024 * 1024, '/usr/lib/postgresql/16/bin/postgres', 'PostgreSQL', 0, 'clean', []),
       mkProc(4188, 'steam', 0.6, 620 * 1024 * 1024, '/usr/bin/steam', 'Valve', 0, 'clean', []),
       mkProc(5233, 'discord', 2.2, 480 * 1024 * 1024, '/usr/share/discord/discord', 'Discord Inc.', 0, 'clean', []),
       mkProc(6102, 'dockerd', 0.4, 210 * 1024 * 1024, '/usr/bin/dockerd', 'Docker', 0, 'clean', []),
       mkProc(7441, 'xmrig', 96.2, 512 * 1024 * 1024, '/tmp/.cache/xmrig', '', 98, 'critical',
-        ['Name matches a known cryptominer signature', 'Executable located in a temporary directory', 'Abnormally high CPU usage (96%)']),
+        ['Name matches a cryptominer keyword (heuristic)', 'Executable located in a temporary/cache directory (heuristic)', 'High measured CPU usage']),
       mkProc(8012, 'chrome', 4.7, 1.6 * GiB, '/opt/google/chrome/chrome', 'Google', 0, 'clean', []),
       mkProc(8890, 'mystery-app', 41.0, 980 * 1024 * 1024, '/var/tmp/mystery-app', '', 53, 'high',
-        ['Executable located in a temporary directory', 'Abnormally high CPU usage (41%)', 'No executable path exposed (packed or hidden process)']),
+        ['Executable located in a temporary/cache directory (heuristic)', 'Elevated measured CPU usage', 'Executable path unavailable']),
       mkProc(9021, 'backupd', 0.2, 88 * 1024 * 1024, '/usr/local/bin/backupd', '', 0, 'clean', []),
     ];
     const apps = [
-      { name: 'Firefox', version: '131.0', publisher: 'Mozilla', size: 240 * 1024 * 1024, flags: [], uninstallString: '', package: 'firefox', path: '' },
-      { name: 'Visual Studio Code', version: '1.94.0', publisher: 'Microsoft', size: 380 * 1024 * 1024, flags: [], uninstallString: '', package: 'code', path: '' },
-      { name: 'Docker Desktop', version: '4.34.2', publisher: 'Docker Inc', size: 620 * 1024 * 1024, flags: [], uninstallString: '', package: 'docker-desktop', path: '' },
-      { name: 'VLC media player', version: '3.0.20', publisher: 'VideoLAN', size: 150 * 1024 * 1024, flags: [], uninstallString: '', package: 'vlc', path: '' },
-      { name: 'Super Speed PC Optimizer 2026', version: '7.2', publisher: '', size: 0, flags: [{ label: 'Possible bloatware', sev: 'high' }, { label: 'Unknown publisher', sev: 'medium' }], uninstallString: '', package: '', path: '' },
-      { name: 'Unknown Driver Updater', version: '3.1', publisher: '', size: 0, flags: [{ label: 'Possible bloatware', sev: 'high' }, { label: 'Unknown publisher', sev: 'medium' }], uninstallString: '', package: '', path: '' },
+      { id: 'demo-firefox', name: 'Firefox', version: '131.0', publisher: 'Mozilla', size: 240 * 1024 * 1024, flags: [], package: 'firefox', path: '', uninstallMethod: 'apt', canUninstall: true },
+      { id: 'demo-code', name: 'Visual Studio Code', version: '1.94.0', publisher: 'Microsoft', size: 380 * 1024 * 1024, flags: [], package: 'code', path: '', uninstallMethod: 'apt', canUninstall: true },
+      { id: 'demo-docker', name: 'Docker Desktop', version: '4.34.2', publisher: 'Docker Inc', size: 620 * 1024 * 1024, flags: [], package: 'docker-desktop', path: '', uninstallMethod: 'apt', canUninstall: true },
+      { id: 'demo-vlc', name: 'VLC media player', version: '3.0.20', publisher: 'VideoLAN', size: 150 * 1024 * 1024, flags: [], package: 'vlc', path: '', uninstallMethod: 'apt', canUninstall: true },
+      { id: 'demo-optimizer', name: 'Super Speed PC Optimizer 2026', version: '7.2', publisher: '', size: 0, flags: [{ label: 'Possible bloatware (heuristic)', sev: 'high' }, { label: 'Unknown publisher', sev: 'medium' }], package: '', path: '', canUninstall: false },
+      { id: 'demo-driver', name: 'Unknown Driver Updater', version: '3.1', publisher: '', size: 0, flags: [{ label: 'Possible bloatware (heuristic)', sev: 'high' }, { label: 'Unknown publisher', sev: 'medium' }], package: '', path: '', canUninstall: false },
     ];
     const conns = [
       { proto: 'TCP', local: '0.0.0.0:22', remote: '0.0.0.0:*', state: 'LISTEN', pid: 812, process: 'sshd' },
@@ -120,76 +115,95 @@
       { proto: 'TCP', local: '192.168.1.14:51234', remote: '142.250.74.46:443', state: 'ESTABLISHED', pid: 1391, process: 'firefox' },
       { proto: 'TCP', local: '192.168.1.14:51877', remote: '185.199.108.133:443', state: 'ESTABLISHED', pid: 2210, process: 'code' },
       { proto: 'TCP', local: '192.168.1.14:44210', remote: '91.189.91.83:993', state: 'ESTABLISHED', pid: 5233, process: 'discord' },
-      { proto: 'UDP', local: '0.0.0.0:5353', remote: '*', state: 'LISTEN', pid: 742, process: 'gnome-shell' },
-      { proto: 'UDP', local: '0.0.0.0:68', remote: '*', state: 'LISTEN', pid: 640, process: 'systemd-network' },
+      { proto: 'UDP', local: '0.0.0.0:5353', remote: '*', state: 'UNCONN', pid: 742, process: 'gnome-shell' },
+      { proto: 'UDP', local: '0.0.0.0:68', remote: '*', state: 'UNCONN', pid: 640, process: 'systemd-network' },
       { proto: 'TCP', local: '192.168.1.14:60012', remote: '45.155.205.233:9001', state: 'ESTABLISHED', pid: 7441, process: 'xmrig' },
     ];
-    const updItems = [
+    const listening = conns.filter((c) => /LISTEN|BOUND|UNCONN/i.test(c.state));
+    const exposed = listening.filter((c) => !/^127\.|^::1|^\[::1\]/i.test(c.local));
+    const firewall = { enabled: true, verified: false, profiles: [{ name: 'ufw', enabled: true }, { name: 'firewalld', enabled: false }, { name: 'nftables ruleset', enabled: true }], details: 'Firewall detected; inbound policy requires manual review' };
+    const encryption = { enabled: true, details: 'Encryption detected in the root device chain' };
+    const updates = { items: [
       { name: 'openssl', version: '3.0.13-0ubuntu3.4', source: 'apt (Ubuntu 24.04)' },
       { name: 'linux-firmware', version: '20240318.git3b128b60-0ubuntu2.14', source: 'apt (Ubuntu 24.04)' },
       { name: 'google-chrome-stable', version: '130.0.6723.58-1', source: 'apt (Google LLC)' },
-    ];
+    ], history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, checkStatus: 'ok', note: '3 package update(s) available' };
     const errItems = [
       { time: '2026-10-09 08:14:22', source: 'kernel', id: '', message: 'nvme0n1: I/O error, dev nvme0n1, sector 20481920 op 0x1:(WRITE)' },
       { time: '2026-10-09 07:52:10', source: 'systemd', id: '', message: 'Failed to start Application Sandboxing Daemon — unit failed' },
       { time: '2026-10-08 23:41:55', source: 'dockerd', id: '', message: 'Error starting daemon: error opening listener: address already in use' },
       { time: '2026-10-08 19:03:37', source: 'gnome-shell', id: '', message: 'JS ERROR: TypeError: window is undefined in resource:///org/gnome/shell/ui' },
     ];
+    const errors = { items: errItems, count24h: errItems.length, available: true, window: 'last 24h (up to 200 newest journal errors)' };
     const junkResults = Array.from({ length: 12 }, (_, i) => ({
       path: ['/tmp/.cache/app-' + i + '.log', '/home/alex/.cache/pip/http-' + i, '/var/tmp/old-install-' + i + '.tmp', '/home/alex/.cache/thumbnails/fail-' + i + '.png'][i % 4],
       size: 124 * 1024 * 1024 - i * 7 * 1024 * 1024,
-      kind: ['Log file', 'Cache', 'Backup / temp', 'System junk'][i % 4],
+      kind: ['Log file', 'Cache (review before removal)', 'Temporary / backup file', 'Cache (review before removal)'][i % 4],
+      mtimeMs: Date.now() - 48 * 60 * 60 * 1000,
     }));
+    const disks = [{ device: '/dev/nvme0n1p2', mount: '/', label: 'Ubuntu', size: 1.86 * 1024 * GiB, used: 1.42 * 1024 * GiB, free: 440 * GiB, isSystem: true }];
+    const suspicious = procs.filter((p) => p.suspicion > 0);
     const scanQuick = {
-      system: sys,
-      disks: [{ device: '/dev/nvme0n1p2', mount: '/', label: 'Ubuntu', size: 1.86 * 1024 * GiB, used: 1.42 * 1024 * GiB, free: 440 * 1024 * 1024 * 1024 }],
-      processes: procs,
-      suspicious: procs.filter((p) => p.suspicion > 0),
-      firewall: { enabled: true, profiles: [{ name: 'ufw', enabled: true }, { name: 'firewalld', enabled: false }, { name: 'nftables', enabled: true }], details: 'ufw: active · nftables: active' },
-      encryption: { enabled: true, details: 'LUKS encrypted volume detected' },
-      updates: { items: updItems, history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, note: '3 package update(s) available' },
-      errors: { items: errItems, window: 'last 24h (journal, err level)' },
-      networkSummary: { connections: conns.length, listening: conns.filter((c) => /LISTEN/.test(c.state)).length },
-      junk: { scanned: 184322, reclaimable: 612 * 1024 * 1024, count: 1843, truncated: false },
-      score: { score: 76, grade: 'A', findings: [
-        { sev: 'critical', msg: '2 suspicious process(es) detected', pts: 12 },
-        { sev: 'warning', msg: '3 pending system update(s)', pts: 6 },
-        { sev: 'warning', msg: '4 system error(s) in the last 24h', pts: 4 },
-        { sev: 'info', msg: '612 MB of junk files can be reclaimed', pts: 1 },
-      ] },
+      system: sys, systemDisk: disks[0], disks, processesAvailable: true, processError: null, processes: procs, suspicious,
+      firewall, encryption, updates, errors,
+      networkSummary: { connections: conns.length, listening: listening.length, exposed: exposed.length, available: true },
+      junk: { available: true, incomplete: false, skipped: 0, error: null, scanned: 184322, reclaimable: 612 * 1024 * 1024, count: 1843, truncated: false },
+      score: { score: 58, grade: 'C', findings: [
+        { sev: 'critical', msg: 'Process-risk heuristics flagged 2 process(es); investigate manually', pts: 12 },
+        { sev: 'warning', msg: 'Firewall inbound policy could not be verified', pts: 8 },
+        { sev: 'warning', msg: '3 pending operating-system update(s)', pts: 9 },
+        { sev: 'warning', msg: '4 system error event(s) in the last 24h', pts: 2 },
+        { sev: 'warning', msg: '2 externally bound listening endpoint(s) need review', pts: 4 },
+      ], disclaimer: 'Heuristic posture indicator only; not an antivirus or a guarantee of security.' },
       durationMs: 2340,
     };
+    const scanFiles = (options = {}) => {
+      const mode = options.mode || 'junk';
+      if (mode === 'duplicates') {
+        const duplicateResults = [{ kind: 'Duplicate group x2', size: 80 * 1024 * 1024, wasted: 80 * 1024 * 1024, count: 2, files: ['/home/alex/Downloads/video.mp4', '/home/alex/Videos/video-copy.mp4'] }];
+        return { available: true, incomplete: false, skipped: 0, error: null, mode, roots: options.roots || ['/home/alex'], scanned: 184322, bytes: 96 * GiB, truncated: false, durationMs: 3.1, count: duplicateResults.length, reclaimable: 80 * 1024 * 1024, results: duplicateResults };
+      }
+      const results = mode === 'large'
+        ? [{ path: '/home/alex/Downloads/archive.iso', size: 5 * GiB, kind: 'Large file (>= 100 MB)' }, { path: '/home/alex/Videos/recording.mkv', size: 2 * GiB, kind: 'Large file (>= 100 MB)' }]
+        : junkResults;
+      return { available: true, incomplete: false, skipped: 0, error: null, mode, roots: options.roots || ['/tmp', '/home/alex/.cache'], scanned: 184322, bytes: 96 * GiB, truncated: false, durationMs: 3.1, count: results.length, reclaimable: mode === 'junk' ? 612 * 1024 * 1024 : 0, minJunkAgeMs: 24 * 60 * 60 * 1000, scanToken: mode === 'junk' ? 'demo-scan-session' : undefined, results };
+    };
     const canned = {
-      'license:get': { tier: 'free', key: null, since: null },
-      'license:set': (p) => p,
       'sys:info': sys,
-      'disk:usage': scanQuick.disks,
+      'disk:usage': disks,
       'scan:quick': scanQuick,
-      'scan:files': { mode: 'junk', roots: ['default'], scanned: 184322, bytes: 96 * 1024 * 1024 * 1024, truncated: false, durationMs: 3120, count: 12, reclaimable: 612 * 1024 * 1024, results: junkResults },
-      'files:clean': { removed: 12, failed: 0, bytes: 612 * 1024 * 1024 },
-      'proc:list': procs,
+      'scan:files': scanFiles,
+      'files:clean': (payload) => ({ removed: (payload.paths || []).length, failed: 0, bytes: 0 }),
+      'proc:list': { available: true, items: procs, error: null },
       'proc:kill': { ok: true, error: null },
       'apps:list': apps,
       'apps:uninstall': { ok: true, error: null },
-      'net:list': { connections: conns, listening: conns.filter((c) => /LISTEN/.test(c.state)) },
-      'fw:status': scanQuick.firewall,
+      'net:list': { connections: conns, listening, exposed, available: true, error: null },
+      'fw:status': firewall,
       'fw:enable': { ok: true, error: null },
-      'enc:status': scanQuick.encryption,
-      'updates:check': { items: updItems, history: [], lastInstalled: '2026-10-01', daysSinceLastUpdate: 8, rebootRequired: false, note: '3 package update(s) available' },
-      'updates:install': { ok: true, note: 'Update installation started — a restart may be required' },
-      'errors:list': { items: errItems, window: 'last 24h (journal, err level)' },
+      'enc:status': encryption,
+      'updates:check': updates,
+      'updates:install': { ok: true, note: 'Demo only — no updates were installed' },
+      'errors:list': errors,
       'dialog:pickDir': null,
       'report:save': '/home/alex/aegis-sentinel-report.json',
       'win:minimize': null, 'win:toggleMax': null, 'win:close': null,
     };
-    window.aegis = {
-      invoke: (channel, payload) => {
-        const v = canned[channel];
-        if (v === undefined) return Promise.resolve({ ok: false, error: 'demo: unknown channel ' + channel });
-        return Promise.resolve({ ok: true, data: typeof v === 'function' ? v(payload) : v });
-      },
-      on: () => () => {},
+    const call = (channel, payload) => {
+      const value = canned[channel];
+      if (value === undefined) return Promise.resolve({ ok: false, error: 'demo: unknown operation' });
+      return Promise.resolve({ ok: true, data: typeof value === 'function' ? value(payload) : value });
     };
+    window.aegis = Object.freeze({
+      getSystemInfo: () => call('sys:info'), getDiskUsage: () => call('disk:usage'),
+      quickScan: () => call('scan:quick'), scanFiles: (p) => call('scan:files', p), cleanFiles: (p) => call('files:clean', p),
+      listProcesses: () => call('proc:list'), killProcess: (p) => call('proc:kill', p),
+      listApps: () => call('apps:list'), uninstallApp: (p) => call('apps:uninstall', p),
+      getNetwork: () => call('net:list'), getFirewall: () => call('fw:status'), enableFirewall: () => call('fw:enable'),
+      getEncryption: () => call('enc:status'), checkUpdates: () => call('updates:check'), installUpdates: () => call('updates:install'),
+      getSystemErrors: () => call('errors:list'), pickDirectory: () => call('dialog:pickDir'), saveReport: (p) => call('report:save', p),
+      minimize: () => call('win:minimize'), toggleMaximize: () => call('win:toggleMax'), close: () => call('win:close'),
+    });
   })();
   </script>
   <script>
