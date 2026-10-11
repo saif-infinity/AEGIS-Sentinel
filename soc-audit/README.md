@@ -15,7 +15,7 @@ Il est déposé ici uniquement parce que la session de travail est liée à cett
 | `00-all-fixes-combined.diff` | **Tout en un** — 184 fichiers, du code d'origine à l'état final |
 | `01-fixes-build-security.diff` | P0 build + P1 sécurité, écrits à la main — 28 fichiers |
 | `02-lint-ruff-autofix.diff` | Churn mécanique `ruff --fix` — 146 fichiers |
-| `03-lint-manual-and-functional-fixes.diff` | Lint manuel (52 → 0 erreurs) + correctifs fonctionnels — 50 fichiers |
+| `03-lint-manual-and-functional-fixes.diff` | Lint manuel (52 → 0 erreurs) + correctifs fonctionnels — 52 fichiers |
 | `LICENSE-AGPL-3.0.txt` | Licence proposée (le dépôt audité n'en avait aucune) |
 | `NOTICE.txt` | Attribution nominative des 12 logos de marques + rappel des conditions |
 
@@ -70,3 +70,20 @@ vivant. Il échoue à l'identique sur le code d'origine.
 Les deux voies d'application (`00` seul, et `01+02+03`) ont été vérifiées sur une
 extraction fraîche du tarball `master` : `diff -rq` renvoie **0 divergence** avec
 l'arbre final attendu.
+
+## État du push vers le dépôt audité
+
+Une branche `fix/audit-p0-p4` (3 commits, base `884f565` = `master`) a été
+préparée et vérifiée localement, mais le push vers
+`saif-infinity/projet-soc-ips-siem-xdr-` a été **refusé en 403** : le jeton
+GitHub de la session est un jeton d'installation limité à `AEGIS-Sentinel`
+(`gh api installation/repositories` → `Resource not accessible by integration`),
+même si l'API indique `push: true` pour le compte `saif-infinity`.
+
+Il faut donc étendre l'accès de l'intégration GitHub d'Arena à ce dépôt, puis :
+
+```bash
+cd /home/user/soc-push && git push -u origin fix/audit-p0-p4
+```
+
+Ou appliquer les patchs soi-même (3 commandes, voir ci-dessus).

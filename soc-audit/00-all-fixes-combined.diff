@@ -8674,7 +8674,7 @@ index 719a975..b5f8b5f 100644
  router = APIRouter(prefix="/api/super-admin", tags=["super-admin"])
  
 diff --git a/backend/app/interface/api/suricata.py b/backend/app/interface/api/suricata.py
-index 5984968..d547f78 100644
+index 5984968..42d7f94 100644
 --- a/backend/app/interface/api/suricata.py
 +++ b/backend/app/interface/api/suricata.py
 @@ -1,16 +1,16 @@
@@ -8710,7 +8710,21 @@ index 5984968..d547f78 100644
      combined = alerts + others
      combined.sort(key=lambda x: x.timestamp, reverse=True)
  
-@@ -76,13 +76,13 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
+@@ -46,7 +46,13 @@ def get_suricata_alerts(request: Request, db: Session = Depends(get_db)):
+             "dest_ip": a.dest_ip,
+             "proto": a.proto,
+             "alert_msg": a.alert_msg,
++            # `severity` est la valeur BRUTE de Suricata, dont l'échelle est
++            # inversée (1 = le plus grave, 4 = le moins grave). `normalized_severity`
++            # est la même alerte ramenée par le pipeline sur l'échelle 0-15 partagée
++            # avec Wazuh et Syslog. Renvoyer les deux laisse le client choisir —
++            # et évite qu'un écran compare un "1" Suricata à un seuil Wazuh.
+             "severity": a.severity,
++            "normalized_severity": a.normalized_severity,
+             "verdict": verdict,
+             "payload": a.payload,
+         })
+@@ -76,13 +82,13 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
  
      if not isinstance(payload_data, list):
          payload_data = [payload_data]
@@ -8726,7 +8740,7 @@ index 5984968..d547f78 100644
          data = original_data
          # Unwrap if the actual Suricata JSON is inside a 'message' string
          if "message" in data and isinstance(data["message"], str):
-@@ -90,9 +90,9 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
+@@ -90,9 +96,9 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
                  data = json.loads(data["message"])
              except json.JSONDecodeError:
                  pass
@@ -8738,7 +8752,7 @@ index 5984968..d547f78 100644
          # Simplify huge payloads to avoid truncation (which breaks JSON.parse in frontend)
          if event_type == "stats" and "stats" in data:
              s = data["stats"]
-@@ -122,10 +122,10 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
+@@ -122,10 +128,10 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
              alerts_added += 1
          except Exception as e:
              logger.error("Suricata webhook: pipeline ingest échoué: %s", e)
@@ -8751,7 +8765,7 @@ index 5984968..d547f78 100644
      # For debugging, let's see what we are ignoring
      for original_data in payload_data:
          if isinstance(original_data, dict):
-@@ -136,7 +136,7 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
+@@ -136,7 +142,7 @@ async def receive_suricata_alert(request: Request, db: Session = Depends(get_db)
                  except Exception:
                      pass
              logger.debug("Suricata Ignored Event Type: %s", data.get('event_type', 'still_unknown'))
@@ -11663,10 +11677,10 @@ index 0000000..4cc8a80
 +export default createFetchWithAuth;
 diff --git a/frontend/src/lib/formatters.js b/frontend/src/lib/formatters.js
 new file mode 100644
-index 0000000..639cd79
+index 0000000..d097d20
 --- /dev/null
 +++ b/frontend/src/lib/formatters.js
-@@ -0,0 +1,350 @@
+@@ -0,0 +1,370 @@
 +// src/lib/formatters.js
 +// Presentation helpers shared by the SOC pages.
 +//
@@ -11691,7 +11705,12 @@ index 0000000..639cd79
 +
 +export function severityOf(alert) {
 +  if (!alert) return 0;
++  // `normalized_severity` d'abord : c'est la seule valeur déjà ramenée par le
++  // pipeline sur l'échelle 0-15 partagée. Les champs bruts qui suivent viennent
++  // de sources dont l'échelle diffère (Suricata compte à l'envers, Wazuh de 0 à
++  // 16) — les comparer tels quels à SEVERITY_CRITICAL n'a pas de sens.
 +  const raw =
++    alert.normalized_severity ??
 +    alert.Severity ??
 +    alert.severity ??
 +    alert.level ??
@@ -11700,6 +11719,21 @@ index 0000000..639cd79
 +    0;
 +  const n = parseInt(raw, 10);
 +  return Number.isFinite(n) ? n : 0;
++}
++
++/**
++ * Échelle brute de Suricata, qui est INVERSÉE : 1 est le plus grave, 4 le moins.
++ * La comparer directement aux seuils 0-15 faisait afficher « Low » pour les
++ * alertes les plus critiques de Suricata. À n'utiliser que si
++ * `normalized_severity` manque (ancien backend).
++ */
++export const SURICATA_RAW_SEVERITY = { 1: 15, 2: 10, 3: 5, 4: 1 };
++
++export function suricataSeverityOf(alert) {
++  const normalized = parseInt(alert?.normalized_severity, 10);
++  if (Number.isFinite(normalized) && normalized > 0) return normalized;
++  const raw = parseInt(alert?.severity, 10);
++  return Number.isFinite(raw) ? (SURICATA_RAW_SEVERITY[raw] ?? 0) : 0;
 +}
 +
 +export function severityBucket(alert) {
@@ -12140,7 +12174,7 @@ index 7ff2162..d26532f 100644
    return (
      <div className="p-6 space-y-6">
 diff --git a/frontend/src/pages/SuricataPage.jsx b/frontend/src/pages/SuricataPage.jsx
-index 7ff0864..204b75a 100644
+index 7ff0864..f29de17 100644
 --- a/frontend/src/pages/SuricataPage.jsx
 +++ b/frontend/src/pages/SuricataPage.jsx
 @@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
@@ -12148,17 +12182,33 @@ index 7ff0864..204b75a 100644
  import { useData } from "../contexts/DataContext";
  import { useAuth } from "../contexts/AuthContext";
 -import { formatSuricataDetails } from "../lib/formatters";
-+import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM, formatSuricataDetails } from "../lib/formatters";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM, formatSuricataDetails, suricataSeverityOf } from "../lib/formatters";
  import SourceConfigWizard from "../components/SourceConfigWizard";
  
  export default function SuricataPage() {
-@@ -172,9 +172,11 @@ export default function SuricataPage() {
+@@ -129,7 +129,7 @@ export default function SuricataPage() {
+           .sort((a, b) => {
+             let aVal, bVal;
+             if (sort.key === "timestamp") { aVal = new Date(a.timestamp).getTime(); bVal = new Date(b.timestamp).getTime(); }
+-            else if (sort.key === "severity") { aVal = parseInt(a.severity || 0); bVal = parseInt(b.severity || 0); }
++            else if (sort.key === "severity") { aVal = suricataSeverityOf(a); bVal = suricataSeverityOf(b); }
+             else { aVal = new Date(a.timestamp).getTime(); bVal = new Date(b.timestamp).getTime(); }
+             const diff = aVal - bVal;
+             return sort.dir === "asc" ? diff : -diff;
+@@ -171,10 +171,17 @@ export default function SuricataPage() {
+                 <tbody>
                    {typeAlerts.length > 0 ? (
                      typeAlerts.map((a, i) => {
-                       const sev = parseInt(a.severity || 0);
+-                      const sev = parseInt(a.severity || 0);
 -                      const isCritical = isAlert && sev >= 12;
 -                      const isHigh = isAlert && sev >= 7 && sev < 12;
 -                      const isMedium = isAlert && sev >= 3 && sev < 7;
++                      // suricataSeverityOf() : passe par normalized_severity quand le
++                      // backend la fournit, sinon remappe l'échelle inversée de Suricata
++                      // (1 = critique). Un `parseInt(a.severity)` nu comparait un « 1 »
++                      // Suricata à SEVERITY_CRITICAL = 12 : tout s'affichait en Low.
++                      const sev = suricataSeverityOf(a);
++                      const rawSev = parseInt(a.severity || 0);
 +                      // Seuils partagés ; isMedium remontait de >=3 à >=4
 +                      // (SEVERITY_MEDIUM) pour coller au reste de l'app.
 +                      const isCritical = isAlert && sev >= SEVERITY_CRITICAL;
@@ -12167,6 +12217,15 @@ index 7ff0864..204b75a 100644
                        const isLow = isAlert && sev > 0 && sev < 3;
                        const rowClass = isCritical ? "suricata-row-critical" : isHigh ? "suricata-row-high" : isMedium ? "suricata-row-medium" : isLow ? "suricata-row-low" : "suricata-row";
                        const sevClass = isCritical ? "suricata-sev-critical" : isHigh ? "suricata-sev-high" : isMedium ? "suricata-sev-medium" : isLow ? "suricata-sev-low" : "suricata-sev-info";
+@@ -198,7 +205,7 @@ export default function SuricataPage() {
+                           <td style={{ fontFamily: "monospace", fontSize: "12px", color: "#94a3b8" }}>{a.dest_ip || "-"}</td>
+                           <td>
+                             {isAlert ? (
+-                              <span className={sevClass}>Level {sev}</span>
++                              <span className={sevClass} title={`Sévérité Suricata brute : ${rawSev} (échelle inversée) — normalisée : ${sev}/15`}>Level {rawSev} · {sev}/15</span>
+                             ) : (
+                               <span style={{ fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "350px", display: "inline-block" }} title={a.payload || ""}>
+                                 {formatSuricataDetails(a.payload, eType)}
 diff --git a/frontend/src/pages/TerminalAlertsPage.jsx b/frontend/src/pages/TerminalAlertsPage.jsx
 index e723459..43133b6 100644
 --- a/frontend/src/pages/TerminalAlertsPage.jsx

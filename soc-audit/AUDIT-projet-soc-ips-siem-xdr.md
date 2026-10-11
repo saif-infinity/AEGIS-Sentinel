@@ -663,7 +663,21 @@ acceptent maintenant `**_kwargs`.
    pour que la suppression soit exprimable. C'est aussi la raison pour laquelle
    les patchs doivent s'appliquer avec `git apply` et non `patch -p1`.
 
-4. **`--blue` ne désignait jamais du bleu.** `frontend/src/index.css` définit
+4. **L'échelle de sévérité de Suricata est inversée, et rien ne la compensait.**
+   `GET /api/suricata/alerts` ne renvoyait que `a.severity`, la valeur **brute**
+   de Suricata où **1 est le plus grave et 4 le moins grave** — alors que le reste
+   de l'application raisonne sur une échelle 0-15 (`normalized_severity`, déjà
+   calculée et stockée par le pipeline : le test existant affirme
+   `severity 1 → 15`). Comparée à `SEVERITY_CRITICAL = 12`, une valeur de 1
+   retombait dans `isLow` (`sev > 0 && sev < 3`) : **toutes les alertes Suricata
+   les plus graves s'affichaient en « Low »**. Corrigé des deux côtés : l'endpoint
+   expose `normalized_severity`, `severityOf()` la privilégie, et
+   `suricataSeverityOf()` + `SURICATA_RAW_SEVERITY = {1:15, 2:10, 3:5, 4:1}`
+   servent de repli si un ancien backend ne la fournit pas. Vérifié en exécution
+   réelle : 10 alertes ingérées par le vrai webhook, `1 → 15 → Critical`,
+   `2 → 10 → High`, `3 → 5 → Medium`.
+
+5. **`--blue` ne désignait jamais du bleu.** `frontend/src/index.css` définit
    `--blue: #00ff88` (vert), `--blue: #ef4444` (rouge), `--blue: #00ff41` (vert)
    selon le thème, pour un seul consommateur : `outline: 2px solid var(--blue)`.
    Renommé `--focus-ring`, ce qu'il est réellement.
