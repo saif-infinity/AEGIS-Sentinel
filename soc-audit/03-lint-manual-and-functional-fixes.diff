@@ -1,0 +1,3233 @@
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..0ad25db
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,661 @@
++                    GNU AFFERO GENERAL PUBLIC LICENSE
++                       Version 3, 19 November 2007
++
++ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
++ Everyone is permitted to copy and distribute verbatim copies
++ of this license document, but changing it is not allowed.
++
++                            Preamble
++
++  The GNU Affero General Public License is a free, copyleft license for
++software and other kinds of works, specifically designed to ensure
++cooperation with the community in the case of network server software.
++
++  The licenses for most software and other practical works are designed
++to take away your freedom to share and change the works.  By contrast,
++our General Public Licenses are intended to guarantee your freedom to
++share and change all versions of a program--to make sure it remains free
++software for all its users.
++
++  When we speak of free software, we are referring to freedom, not
++price.  Our General Public Licenses are designed to make sure that you
++have the freedom to distribute copies of free software (and charge for
++them if you wish), that you receive source code or can get it if you
++want it, that you can change the software or use pieces of it in new
++free programs, and that you know you can do these things.
++
++  Developers that use our General Public Licenses protect your rights
++with two steps: (1) assert copyright on the software, and (2) offer
++you this License which gives you legal permission to copy, distribute
++and/or modify the software.
++
++  A secondary benefit of defending all users' freedom is that
++improvements made in alternate versions of the program, if they
++receive widespread use, become available for other developers to
++incorporate.  Many developers of free software are heartened and
++encouraged by the resulting cooperation.  However, in the case of
++software used on network servers, this result may fail to come about.
++The GNU General Public License permits making a modified version and
++letting the public access it on a server without ever releasing its
++source code to the public.
++
++  The GNU Affero General Public License is designed specifically to
++ensure that, in such cases, the modified source code becomes available
++to the community.  It requires the operator of a network server to
++provide the source code of the modified version running there to the
++users of that server.  Therefore, public use of a modified version, on
++a publicly accessible server, gives the public access to the source
++code of the modified version.
++
++  An older license, called the Affero General Public License and
++published by Affero, was designed to accomplish similar goals.  This is
++a different license, not a version of the Affero GPL, but Affero has
++released a new version of the Affero GPL which permits relicensing under
++this license.
++
++  The precise terms and conditions for copying, distribution and
++modification follow.
++
++                       TERMS AND CONDITIONS
++
++  0. Definitions.
++
++  "This License" refers to version 3 of the GNU Affero General Public License.
++
++  "Copyright" also means copyright-like laws that apply to other kinds of
++works, such as semiconductor masks.
++
++  "The Program" refers to any copyrightable work licensed under this
++License.  Each licensee is addressed as "you".  "Licensees" and
++"recipients" may be individuals or organizations.
++
++  To "modify" a work means to copy from or adapt all or part of the work
++in a fashion requiring copyright permission, other than the making of an
++exact copy.  The resulting work is called a "modified version" of the
++earlier work or a work "based on" the earlier work.
++
++  A "covered work" means either the unmodified Program or a work based
++on the Program.
++
++  To "propagate" a work means to do anything with it that, without
++permission, would make you directly or secondarily liable for
++infringement under applicable copyright law, except executing it on a
++computer or modifying a private copy.  Propagation includes copying,
++distribution (with or without modification), making available to the
++public, and in some countries other activities as well.
++
++  To "convey" a work means any kind of propagation that enables other
++parties to make or receive copies.  Mere interaction with a user through
++a computer network, with no transfer of a copy, is not conveying.
++
++  An interactive user interface displays "Appropriate Legal Notices"
++to the extent that it includes a convenient and prominently visible
++feature that (1) displays an appropriate copyright notice, and (2)
++tells the user that there is no warranty for the work (except to the
++extent that warranties are provided), that licensees may convey the
++work under this License, and how to view a copy of this License.  If
++the interface presents a list of user commands or options, such as a
++menu, a prominent item in the list meets this criterion.
++
++  1. Source Code.
++
++  The "source code" for a work means the preferred form of the work
++for making modifications to it.  "Object code" means any non-source
++form of a work.
++
++  A "Standard Interface" means an interface that either is an official
++standard defined by a recognized standards body, or, in the case of
++interfaces specified for a particular programming language, one that
++is widely used among developers working in that language.
++
++  The "System Libraries" of an executable work include anything, other
++than the work as a whole, that (a) is included in the normal form of
++packaging a Major Component, but which is not part of that Major
++Component, and (b) serves only to enable use of the work with that
++Major Component, or to implement a Standard Interface for which an
++implementation is available to the public in source code form.  A
++"Major Component", in this context, means a major essential component
++(kernel, window system, and so on) of the specific operating system
++(if any) on which the executable work runs, or a compiler used to
++produce the work, or an object code interpreter used to run it.
++
++  The "Corresponding Source" for a work in object code form means all
++the source code needed to generate, install, and (for an executable
++work) run the object code and to modify the work, including scripts to
++control those activities.  However, it does not include the work's
++System Libraries, or general-purpose tools or generally available free
++programs which are used unmodified in performing those activities but
++which are not part of the work.  For example, Corresponding Source
++includes interface definition files associated with source files for
++the work, and the source code for shared libraries and dynamically
++linked subprograms that the work is specifically designed to require,
++such as by intimate data communication or control flow between those
++subprograms and other parts of the work.
++
++  The Corresponding Source need not include anything that users
++can regenerate automatically from other parts of the Corresponding
++Source.
++
++  The Corresponding Source for a work in source code form is that
++same work.
++
++  2. Basic Permissions.
++
++  All rights granted under this License are granted for the term of
++copyright on the Program, and are irrevocable provided the stated
++conditions are met.  This License explicitly affirms your unlimited
++permission to run the unmodified Program.  The output from running a
++covered work is covered by this License only if the output, given its
++content, constitutes a covered work.  This License acknowledges your
++rights of fair use or other equivalent, as provided by copyright law.
++
++  You may make, run and propagate covered works that you do not
++convey, without conditions so long as your license otherwise remains
++in force.  You may convey covered works to others for the sole purpose
++of having them make modifications exclusively for you, or provide you
++with facilities for running those works, provided that you comply with
++the terms of this License in conveying all material for which you do
++not control copyright.  Those thus making or running the covered works
++for you must do so exclusively on your behalf, under your direction
++and control, on terms that prohibit them from making any copies of
++your copyrighted material outside their relationship with you.
++
++  Conveying under any other circumstances is permitted solely under
++the conditions stated below.  Sublicensing is not allowed; section 10
++makes it unnecessary.
++
++  3. Protecting Users' Legal Rights From Anti-Circumvention Law.
++
++  No covered work shall be deemed part of an effective technological
++measure under any applicable law fulfilling obligations under article
++11 of the WIPO copyright treaty adopted on 20 December 1996, or
++similar laws prohibiting or restricting circumvention of such
++measures.
++
++  When you convey a covered work, you waive any legal power to forbid
++circumvention of technological measures to the extent such circumvention
++is effected by exercising rights under this License with respect to
++the covered work, and you disclaim any intention to limit operation or
++modification of the work as a means of enforcing, against the work's
++users, your or third parties' legal rights to forbid circumvention of
++technological measures.
++
++  4. Conveying Verbatim Copies.
++
++  You may convey verbatim copies of the Program's source code as you
++receive it, in any medium, provided that you conspicuously and
++appropriately publish on each copy an appropriate copyright notice;
++keep intact all notices stating that this License and any
++non-permissive terms added in accord with section 7 apply to the code;
++keep intact all notices of the absence of any warranty; and give all
++recipients a copy of this License along with the Program.
++
++  You may charge any price or no price for each copy that you convey,
++and you may offer support or warranty protection for a fee.
++
++  5. Conveying Modified Source Versions.
++
++  You may convey a work based on the Program, or the modifications to
++produce it from the Program, in the form of source code under the
++terms of section 4, provided that you also meet all of these conditions:
++
++    a) The work must carry prominent notices stating that you modified
++    it, and giving a relevant date.
++
++    b) The work must carry prominent notices stating that it is
++    released under this License and any conditions added under section
++    7.  This requirement modifies the requirement in section 4 to
++    "keep intact all notices".
++
++    c) You must license the entire work, as a whole, under this
++    License to anyone who comes into possession of a copy.  This
++    License will therefore apply, along with any applicable section 7
++    additional terms, to the whole of the work, and all its parts,
++    regardless of how they are packaged.  This License gives no
++    permission to license the work in any other way, but it does not
++    invalidate such permission if you have separately received it.
++
++    d) If the work has interactive user interfaces, each must display
++    Appropriate Legal Notices; however, if the Program has interactive
++    interfaces that do not display Appropriate Legal Notices, your
++    work need not make them do so.
++
++  A compilation of a covered work with other separate and independent
++works, which are not by their nature extensions of the covered work,
++and which are not combined with it such as to form a larger program,
++in or on a volume of a storage or distribution medium, is called an
++"aggregate" if the compilation and its resulting copyright are not
++used to limit the access or legal rights of the compilation's users
++beyond what the individual works permit.  Inclusion of a covered work
++in an aggregate does not cause this License to apply to the other
++parts of the aggregate.
++
++  6. Conveying Non-Source Forms.
++
++  You may convey a covered work in object code form under the terms
++of sections 4 and 5, provided that you also convey the
++machine-readable Corresponding Source under the terms of this License,
++in one of these ways:
++
++    a) Convey the object code in, or embodied in, a physical product
++    (including a physical distribution medium), accompanied by the
++    Corresponding Source fixed on a durable physical medium
++    customarily used for software interchange.
++
++    b) Convey the object code in, or embodied in, a physical product
++    (including a physical distribution medium), accompanied by a
++    written offer, valid for at least three years and valid for as
++    long as you offer spare parts or customer support for that product
++    model, to give anyone who possesses the object code either (1) a
++    copy of the Corresponding Source for all the software in the
++    product that is covered by this License, on a durable physical
++    medium customarily used for software interchange, for a price no
++    more than your reasonable cost of physically performing this
++    conveying of source, or (2) access to copy the
++    Corresponding Source from a network server at no charge.
++
++    c) Convey individual copies of the object code with a copy of the
++    written offer to provide the Corresponding Source.  This
++    alternative is allowed only occasionally and noncommercially, and
++    only if you received the object code with such an offer, in accord
++    with subsection 6b.
++
++    d) Convey the object code by offering access from a designated
++    place (gratis or for a charge), and offer equivalent access to the
++    Corresponding Source in the same way through the same place at no
++    further charge.  You need not require recipients to copy the
++    Corresponding Source along with the object code.  If the place to
++    copy the object code is a network server, the Corresponding Source
++    may be on a different server (operated by you or a third party)
++    that supports equivalent copying facilities, provided you maintain
++    clear directions next to the object code saying where to find the
++    Corresponding Source.  Regardless of what server hosts the
++    Corresponding Source, you remain obligated to ensure that it is
++    available for as long as needed to satisfy these requirements.
++
++    e) Convey the object code using peer-to-peer transmission, provided
++    you inform other peers where the object code and Corresponding
++    Source of the work are being offered to the general public at no
++    charge under subsection 6d.
++
++  A separable portion of the object code, whose source code is excluded
++from the Corresponding Source as a System Library, need not be
++included in conveying the object code work.
++
++  A "User Product" is either (1) a "consumer product", which means any
++tangible personal property which is normally used for personal, family,
++or household purposes, or (2) anything designed or sold for incorporation
++into a dwelling.  In determining whether a product is a consumer product,
++doubtful cases shall be resolved in favor of coverage.  For a particular
++product received by a particular user, "normally used" refers to a
++typical or common use of that class of product, regardless of the status
++of the particular user or of the way in which the particular user
++actually uses, or expects or is expected to use, the product.  A product
++is a consumer product regardless of whether the product has substantial
++commercial, industrial or non-consumer uses, unless such uses represent
++the only significant mode of use of the product.
++
++  "Installation Information" for a User Product means any methods,
++procedures, authorization keys, or other information required to install
++and execute modified versions of a covered work in that User Product from
++a modified version of its Corresponding Source.  The information must
++suffice to ensure that the continued functioning of the modified object
++code is in no case prevented or interfered with solely because
++modification has been made.
++
++  If you convey an object code work under this section in, or with, or
++specifically for use in, a User Product, and the conveying occurs as
++part of a transaction in which the right of possession and use of the
++User Product is transferred to the recipient in perpetuity or for a
++fixed term (regardless of how the transaction is characterized), the
++Corresponding Source conveyed under this section must be accompanied
++by the Installation Information.  But this requirement does not apply
++if neither you nor any third party retains the ability to install
++modified object code on the User Product (for example, the work has
++been installed in ROM).
++
++  The requirement to provide Installation Information does not include a
++requirement to continue to provide support service, warranty, or updates
++for a work that has been modified or installed by the recipient, or for
++the User Product in which it has been modified or installed.  Access to a
++network may be denied when the modification itself materially and
++adversely affects the operation of the network or violates the rules and
++protocols for communication across the network.
++
++  Corresponding Source conveyed, and Installation Information provided,
++in accord with this section must be in a format that is publicly
++documented (and with an implementation available to the public in
++source code form), and must require no special password or key for
++unpacking, reading or copying.
++
++  7. Additional Terms.
++
++  "Additional permissions" are terms that supplement the terms of this
++License by making exceptions from one or more of its conditions.
++Additional permissions that are applicable to the entire Program shall
++be treated as though they were included in this License, to the extent
++that they are valid under applicable law.  If additional permissions
++apply only to part of the Program, that part may be used separately
++under those permissions, but the entire Program remains governed by
++this License without regard to the additional permissions.
++
++  When you convey a copy of a covered work, you may at your option
++remove any additional permissions from that copy, or from any part of
++it.  (Additional permissions may be written to require their own
++removal in certain cases when you modify the work.)  You may place
++additional permissions on material, added by you to a covered work,
++for which you have or can give appropriate copyright permission.
++
++  Notwithstanding any other provision of this License, for material you
++add to a covered work, you may (if authorized by the copyright holders of
++that material) supplement the terms of this License with terms:
++
++    a) Disclaiming warranty or limiting liability differently from the
++    terms of sections 15 and 16 of this License; or
++
++    b) Requiring preservation of specified reasonable legal notices or
++    author attributions in that material or in the Appropriate Legal
++    Notices displayed by works containing it; or
++
++    c) Prohibiting misrepresentation of the origin of that material, or
++    requiring that modified versions of such material be marked in
++    reasonable ways as different from the original version; or
++
++    d) Limiting the use for publicity purposes of names of licensors or
++    authors of the material; or
++
++    e) Declining to grant rights under trademark law for use of some
++    trade names, trademarks, or service marks; or
++
++    f) Requiring indemnification of licensors and authors of that
++    material by anyone who conveys the material (or modified versions of
++    it) with contractual assumptions of liability to the recipient, for
++    any liability that these contractual assumptions directly impose on
++    those licensors and authors.
++
++  All other non-permissive additional terms are considered "further
++restrictions" within the meaning of section 10.  If the Program as you
++received it, or any part of it, contains a notice stating that it is
++governed by this License along with a term that is a further
++restriction, you may remove that term.  If a license document contains
++a further restriction but permits relicensing or conveying under this
++License, you may add to a covered work material governed by the terms
++of that license document, provided that the further restriction does
++not survive such relicensing or conveying.
++
++  If you add terms to a covered work in accord with this section, you
++must place, in the relevant source files, a statement of the
++additional terms that apply to those files, or a notice indicating
++where to find the applicable terms.
++
++  Additional terms, permissive or non-permissive, may be stated in the
++form of a separately written license, or stated as exceptions;
++the above requirements apply either way.
++
++  8. Termination.
++
++  You may not propagate or modify a covered work except as expressly
++provided under this License.  Any attempt otherwise to propagate or
++modify it is void, and will automatically terminate your rights under
++this License (including any patent licenses granted under the third
++paragraph of section 11).
++
++  However, if you cease all violation of this License, then your
++license from a particular copyright holder is reinstated (a)
++provisionally, unless and until the copyright holder explicitly and
++finally terminates your license, and (b) permanently, if the copyright
++holder fails to notify you of the violation by some reasonable means
++prior to 60 days after the cessation.
++
++  Moreover, your license from a particular copyright holder is
++reinstated permanently if the copyright holder notifies you of the
++violation by some reasonable means, this is the first time you have
++received notice of violation of this License (for any work) from that
++copyright holder, and you cure the violation prior to 30 days after
++your receipt of the notice.
++
++  Termination of your rights under this section does not terminate the
++licenses of parties who have received copies or rights from you under
++this License.  If your rights have been terminated and not permanently
++reinstated, you do not qualify to receive new licenses for the same
++material under section 10.
++
++  9. Acceptance Not Required for Having Copies.
++
++  You are not required to accept this License in order to receive or
++run a copy of the Program.  Ancillary propagation of a covered work
++occurring solely as a consequence of using peer-to-peer transmission
++to receive a copy likewise does not require acceptance.  However,
++nothing other than this License grants you permission to propagate or
++modify any covered work.  These actions infringe copyright if you do
++not accept this License.  Therefore, by modifying or propagating a
++covered work, you indicate your acceptance of this License to do so.
++
++  10. Automatic Licensing of Downstream Recipients.
++
++  Each time you convey a covered work, the recipient automatically
++receives a license from the original licensors, to run, modify and
++propagate that work, subject to this License.  You are not responsible
++for enforcing compliance by third parties with this License.
++
++  An "entity transaction" is a transaction transferring control of an
++organization, or substantially all assets of one, or subdividing an
++organization, or merging organizations.  If propagation of a covered
++work results from an entity transaction, each party to that
++transaction who receives a copy of the work also receives whatever
++licenses to the work the party's predecessor in interest had or could
++give under the previous paragraph, plus a right to possession of the
++Corresponding Source of the work from the predecessor in interest, if
++the predecessor has it or can get it with reasonable efforts.
++
++  You may not impose any further restrictions on the exercise of the
++rights granted or affirmed under this License.  For example, you may
++not impose a license fee, royalty, or other charge for exercise of
++rights granted under this License, and you may not initiate litigation
++(including a cross-claim or counterclaim in a lawsuit) alleging that
++any patent claim is infringed by making, using, selling, offering for
++sale, or importing the Program or any portion of it.
++
++  11. Patents.
++
++  A "contributor" is a copyright holder who authorizes use under this
++License of the Program or a work on which the Program is based.  The
++work thus licensed is called the contributor's "contributor version".
++
++  A contributor's "essential patent claims" are all patent claims
++owned or controlled by the contributor, whether already acquired or
++hereafter acquired, that would be infringed by some manner, permitted
++by this License, of making, using, or selling its contributor version,
++but do not include claims that would be infringed only as a
++consequence of further modification of the contributor version.  For
++purposes of this definition, "control" includes the right to grant
++patent sublicenses in a manner consistent with the requirements of
++this License.
++
++  Each contributor grants you a non-exclusive, worldwide, royalty-free
++patent license under the contributor's essential patent claims, to
++make, use, sell, offer for sale, import and otherwise run, modify and
++propagate the contents of its contributor version.
++
++  In the following three paragraphs, a "patent license" is any express
++agreement or commitment, however denominated, not to enforce a patent
++(such as an express permission to practice a patent or covenant not to
++sue for patent infringement).  To "grant" such a patent license to a
++party means to make such an agreement or commitment not to enforce a
++patent against the party.
++
++  If you convey a covered work, knowingly relying on a patent license,
++and the Corresponding Source of the work is not available for anyone
++to copy, free of charge and under the terms of this License, through a
++publicly available network server or other readily accessible means,
++then you must either (1) cause the Corresponding Source to be so
++available, or (2) arrange to deprive yourself of the benefit of the
++patent license for this particular work, or (3) arrange, in a manner
++consistent with the requirements of this License, to extend the patent
++license to downstream recipients.  "Knowingly relying" means you have
++actual knowledge that, but for the patent license, your conveying the
++covered work in a country, or your recipient's use of the covered work
++in a country, would infringe one or more identifiable patents in that
++country that you have reason to believe are valid.
++
++  If, pursuant to or in connection with a single transaction or
++arrangement, you convey, or propagate by procuring conveyance of, a
++covered work, and grant a patent license to some of the parties
++receiving the covered work authorizing them to use, propagate, modify
++or convey a specific copy of the covered work, then the patent license
++you grant is automatically extended to all recipients of the covered
++work and works based on it.
++
++  A patent license is "discriminatory" if it does not include within
++the scope of its coverage, prohibits the exercise of, or is
++conditioned on the non-exercise of one or more of the rights that are
++specifically granted under this License.  You may not convey a covered
++work if you are a party to an arrangement with a third party that is
++in the business of distributing software, under which you make payment
++to the third party based on the extent of your activity of conveying
++the work, and under which the third party grants, to any of the
++parties who would receive the covered work from you, a discriminatory
++patent license (a) in connection with copies of the covered work
++conveyed by you (or copies made from those copies), or (b) primarily
++for and in connection with specific products or compilations that
++contain the covered work, unless you entered into that arrangement,
++or that patent license was granted, prior to 28 March 2007.
++
++  Nothing in this License shall be construed as excluding or limiting
++any implied license or other defenses to infringement that may
++otherwise be available to you under applicable patent law.
++
++  12. No Surrender of Others' Freedom.
++
++  If conditions are imposed on you (whether by court order, agreement or
++otherwise) that contradict the conditions of this License, they do not
++excuse you from the conditions of this License.  If you cannot convey a
++covered work so as to satisfy simultaneously your obligations under this
++License and any other pertinent obligations, then as a consequence you may
++not convey it at all.  For example, if you agree to terms that obligate you
++to collect a royalty for further conveying from those to whom you convey
++the Program, the only way you could satisfy both those terms and this
++License would be to refrain entirely from conveying the Program.
++
++  13. Remote Network Interaction; Use with the GNU General Public License.
++
++  Notwithstanding any other provision of this License, if you modify the
++Program, your modified version must prominently offer all users
++interacting with it remotely through a computer network (if your version
++supports such interaction) an opportunity to receive the Corresponding
++Source of your version by providing access to the Corresponding Source
++from a network server at no charge, through some standard or customary
++means of facilitating copying of software.  This Corresponding Source
++shall include the Corresponding Source for any work covered by version 3
++of the GNU General Public License that is incorporated pursuant to the
++following paragraph.
++
++  Notwithstanding any other provision of this License, you have
++permission to link or combine any covered work with a work licensed
++under version 3 of the GNU General Public License into a single
++combined work, and to convey the resulting work.  The terms of this
++License will continue to apply to the part which is the covered work,
++but the work with which it is combined will remain governed by version
++3 of the GNU General Public License.
++
++  14. Revised Versions of this License.
++
++  The Free Software Foundation may publish revised and/or new versions of
++the GNU Affero General Public License from time to time.  Such new versions
++will be similar in spirit to the present version, but may differ in detail to
++address new problems or concerns.
++
++  Each version is given a distinguishing version number.  If the
++Program specifies that a certain numbered version of the GNU Affero General
++Public License "or any later version" applies to it, you have the
++option of following the terms and conditions either of that numbered
++version or of any later version published by the Free Software
++Foundation.  If the Program does not specify a version number of the
++GNU Affero General Public License, you may choose any version ever published
++by the Free Software Foundation.
++
++  If the Program specifies that a proxy can decide which future
++versions of the GNU Affero General Public License can be used, that proxy's
++public statement of acceptance of a version permanently authorizes you
++to choose that version for the Program.
++
++  Later license versions may give you additional or different
++permissions.  However, no additional obligations are imposed on any
++author or copyright holder as a result of your choosing to follow a
++later version.
++
++  15. Disclaimer of Warranty.
++
++  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
++APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
++HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY
++OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
++THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
++IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
++ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
++
++  16. Limitation of Liability.
++
++  IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
++WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS
++THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY
++GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE
++USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF
++DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD
++PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS),
++EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF
++SUCH DAMAGES.
++
++  17. Interpretation of Sections 15 and 16.
++
++  If the disclaimer of warranty and limitation of liability provided
++above cannot be given local legal effect according to their terms,
++reviewing courts shall apply local law that most closely approximates
++an absolute waiver of all civil liability in connection with the
++Program, unless a warranty or assumption of liability accompanies a
++copy of the Program in return for a fee.
++
++                     END OF TERMS AND CONDITIONS
++
++            How to Apply These Terms to Your New Programs
++
++  If you develop a new program, and you want it to be of the greatest
++possible use to the public, the best way to achieve this is to make it
++free software which everyone can redistribute and change under these terms.
++
++  To do so, attach the following notices to the program.  It is safest
++to attach them to the start of each source file to most effectively
++state the exclusion of warranty; and each file should have at least
++the "copyright" line and a pointer to where the full notice is found.
++
++    <one line to give the program's name and a brief idea of what it does.>
++    Copyright (C) <year>  <name of author>
++
++    This program is free software: you can redistribute it and/or modify
++    it under the terms of the GNU Affero General Public License as published
++    by the Free Software Foundation, either version 3 of the License, or
++    (at your option) any later version.
++
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU Affero General Public License for more details.
++
++    You should have received a copy of the GNU Affero General Public License
++    along with this program.  If not, see <https://www.gnu.org/licenses/>.
++
++Also add information on how to contact you by electronic and paper mail.
++
++  If your software can interact with users remotely through a computer
++network, you should also make sure that it provides a way for users to
++get its source.  For example, if your program is a web application, its
++interface could display a "Source" link that leads users to an archive
++of the code.  There are many ways you could offer source, and different
++solutions will be better for different programs; see section 13 for the
++specific requirements.
++
++  You should also get your employer (if you work as a programmer) or school,
++if any, to sign a "copyright disclaimer" for the program, if necessary.
++For more information on this, and how to apply and follow the GNU AGPL, see
++<https://www.gnu.org/licenses/>.
+diff --git a/NOTICE b/NOTICE
+new file mode 100644
+index 0000000..df98b7d
+--- /dev/null
++++ b/NOTICE
+@@ -0,0 +1,37 @@
++AEGIS Sentinel — SIEM / XDR for SOCs
++Copyright (C) 2026 the AEGIS Sentinel authors
++
++This program is free software: you can redistribute it and/or modify it under
++the terms of the GNU Affero General Public License as published by the Free
++Software Foundation, either version 3 of the License, or (at your option) any
++later version. See the LICENSE file.
++
++--------------------------------------------------------------------------------
++THIRD-PARTY TRADEMARKS AND BRAND ASSETS
++--------------------------------------------------------------------------------
++
++`frontend/public/logos/` contains logo artwork for the following vendors:
++Cisco, Dell, Fortinet, HPE, Huawei, Juniper, MikroTik, Palo Alto Networks,
++Sophos, TP-Link, Ubiquiti and WatchGuard.
++
++Each of those names and logos is a trademark or registered trademark of its
++respective owner. They are used here **nominatively**, solely to identify the
++equipment vendor in the network-inventory screens, and are NOT an endorsement
++by, affiliation with, or sponsorship from any of those companies.
++
++Before redistributing this repository you must satisfy each vendor's brand
++guidelines. Most of them permit nominative use of an unmodified logo at a
++reasonable size; some (notably Cisco, Fortinet and Palo Alto Networks) require
++written permission or restrict recolouring and resizing. If you cannot satisfy
++a given vendor's terms, remove that vendor's logo from `frontend/public/logos/`
++and drop the corresponding entry from the `VENDOR_LOGOS` map in
++`frontend/src/pages/NetworkDevicesPage.jsx` — the page falls back to a generic
++icon for vendors without artwork.
++
++--------------------------------------------------------------------------------
++OTHER THIRD-PARTY COMPONENTS
++--------------------------------------------------------------------------------
++
++Python and JavaScript dependencies are declared in `backend/requirements.txt`,
++`frontend/package.json` and `admin-frontend/package.json`. Each is distributed
++under its own licence; review them before redistributing a bundle.
+diff --git a/backend/.gitignore b/backend/.gitignore
+new file mode 100644
+index 0000000..69a4004
+--- /dev/null
++++ b/backend/.gitignore
+@@ -0,0 +1,2 @@
++celerybeat-schedule
++*.pid
+diff --git a/backend/alembic.ini b/backend/alembic.ini
+new file mode 100644
+index 0000000..ac2b699
+--- /dev/null
++++ b/backend/alembic.ini
+@@ -0,0 +1,52 @@
++# Configuration Alembic.
++#
++# La chaîne de connexion N'EST PAS écrite ici : `migrations/env.py` la lit depuis
++# `app.config.settings.DATABASE_URL` (variable d'environnement), ce qui évite de
++# committer un DSN avec mot de passe.
++#
++# Usage :
++#   alembic upgrade head                       # appliquer les migrations
++#   alembic revision --autogenerate -m "..."   # créer une migration depuis les modèles
++#   alembic stamp head                         # marquer un schéma existant comme à jour
++#   alembic downgrade -1                       # revenir un cran en arrière
++
++[alembic]
++script_location = migrations
++prepend_sys_path = .
++version_path_separator = os
++file_template = %%(rev)s_%%(slug)s
++timezone = UTC
++
++[loggers]
++keys = root,sqlalchemy,alembic
++
++[handlers]
++keys = console
++
++[formatters]
++keys = generic
++
++[logger_root]
++level = WARNING
++handlers = console
++qualname =
++
++[logger_sqlalchemy]
++level = WARNING
++handlers =
++qualname = sqlalchemy.engine
++
++[logger_alembic]
++level = INFO
++handlers =
++qualname = alembic
++
++[handler_console]
++class = StreamHandler
++args = (sys.stderr,)
++level = NOTSET
++formatter = generic
++
++[formatter_generic]
++format = %(levelname)-5.5s [%(name)s] %(message)s
++datefmt = %H:%M:%S
+diff --git a/backend/app/application/bootstrap.py b/backend/app/application/bootstrap.py
+index 46f658c..17d4b33 100644
+--- a/backend/app/application/bootstrap.py
++++ b/backend/app/application/bootstrap.py
+@@ -16,9 +16,65 @@ honeypot_service = HoneypotService()
+ 
+ logger = logging.getLogger(__name__)
+ 
++# Tâches d'arrière-plan créées au démarrage. Sans référence conservée, le
++# ramasse-miettes peut détruire une tâche en cours d'exécution (« Task was
++# destroyed but it is pending! ») et rien ne peut l'annuler à l'arrêt.
++_background_tasks: set[asyncio.Task] = set()
++
++
++def _spawn(coro, *, name: str) -> asyncio.Task:
++    """Crée une tâche référencée et nommée, avec nettoyage + log à la fin."""
++    task = asyncio.create_task(coro, name=name)
++    _background_tasks.add(task)
++
++    def _done(t: asyncio.Task) -> None:
++        _background_tasks.discard(t)
++        if t.cancelled():
++            return
++        exc = t.exception()
++        if exc is not None:
++            logger.error("Tâche d'arrière-plan %r terminée en erreur: %s", name, exc)
++
++    task.add_done_callback(_done)
++    logger.info("Tâche d'arrière-plan démarrée: %s", name)
++    return task
++
++
++async def run_shutdown():
++    """Arrêt propre : honeypot, collecteurs, puis annulation des tâches.
++
++    Appelée par le handler `lifespan` de `interface/main.py`. Sans elle, un
++    `SIGTERM` laissait les sockets du honeypot ouverts et les tâches en vol.
++    """
++    logger.info("=== AEGIS Sentinel Backend Shutting Down ===")
++    if settings.ENABLE_HONEYPOT and honeypot_service.running:
++        try:
++            await honeypot_service.stop()
++            logger.info("Honeypot arrêté.")
++        except Exception as e:  # noqa: BLE001 — l'arrêt ne doit jamais échouer
++            logger.warning("Arrêt du honeypot en erreur (ignoré): %s", e)
++
++    pending = [t for t in _background_tasks if not t.done()]
++    for t in pending:
++        t.cancel()
++    if pending:
++        await asyncio.gather(*pending, return_exceptions=True)
++        logger.info("%d tâche(s) d'arrière-plan annulée(s).", len(pending))
++
+ 
+ async def run_startup():
+-    Base.metadata.create_all(bind=engine)
++    # `create_all()` ne sait ni ALTER ni DROP : il crée les tables manquantes et
++    # ignore toute évolution de colonne. C'est pratique en dev, dangereux en
++    # production où le schéma doit venir des migrations Alembic (`alembic upgrade
++    # head`), seules reproductibles et réversibles. AUTO_CREATE_SCHEMA=false
++    # désactive le raccourci ; la révision 0001 sert de baseline.
++    if settings.AUTO_CREATE_SCHEMA:
++        Base.metadata.create_all(bind=engine)
++    else:
++        logger.info(
++            "AUTO_CREATE_SCHEMA=false : le schéma n'est pas créé au démarrage. "
++            "Exécutez `alembic upgrade head`."
++        )
+ 
+     # F4 — Seed the super admin account (idempotent).
+     sa_pw = settings.SUPER_ADMIN_PASSWORD.get_secret_value()
+@@ -83,31 +139,41 @@ async def run_startup():
+             await wazuh_service.refresh_agent_cache()
+         except Exception as e:
+             logger.warning("Wazuh cache init: %s (will retry in background)", e)
+-    asyncio.create_task(init_wazuh())
++    _spawn(init_wazuh(), name="wazuh-init")
+ 
+     async def safe_scanner():
+         try:
+             await background_scanner(SessionLocal, broadcaster.broadcast, settings.SCAN_INTERVAL_SECONDS)
+         except Exception as e:
+             logger.error("Background scanner crashed: %s", e)
+-    asyncio.create_task(safe_scanner())
++    _spawn(safe_scanner(), name="scanner")
+ 
+-    async def safe_honeypot():
+-        try:
+-            await honeypot_service.start(SessionLocal, broadcaster.broadcast, ports=[2323, 3389, 8443, 5555])
+-            from ..interface.api.honeypot import set_honeypot_service
+-            set_honeypot_service(honeypot_service)
+-        except Exception as e:
+-            logger.error("Honeypot crashed: %s", e)
+-    asyncio.create_task(safe_honeypot())
++    # Quatre ports en écoute sur toutes les interfaces : activable explicitement.
++    if settings.ENABLE_HONEYPOT:
++        hp_ports = settings.HONEYPOT_PORTS or [2323, 3389, 8443, 5555]
++        logger.warning("Honeypot ACTIVÉ — ports en écoute sur 0.0.0.0: %s", hp_ports)
++
++        async def safe_honeypot():
++            try:
++                await honeypot_service.start(SessionLocal, broadcaster.broadcast, ports=hp_ports)
++                from ..interface.api.honeypot import set_honeypot_service
++                set_honeypot_service(honeypot_service)
++            except Exception as e:
++                logger.error("Honeypot crashed: %s", e)
++        _spawn(safe_honeypot(), name="honeypot")
++    else:
++        logger.info(
++            "Honeypot désactivé (ENABLE_HONEYPOT=false, défaut). "
++            "Activez-le explicitement si votre déploiement en a besoin."
++        )
+ 
+     async def safe_bandwidth_sampler():
+         try:
+-            from ..interface.api.sensors import sample_bandwidth_for_online_analysts
+-            await sample_bandwidth_for_online_analysts(SessionLocal)
++            from ..interface.api.sensors import sample_server_bandwidth
++            await sample_server_bandwidth(SessionLocal)
+         except Exception as e:
+             logger.error("Bandwidth sampler crashed: %s", e)
+-    asyncio.create_task(safe_bandwidth_sampler())
++    _spawn(safe_bandwidth_sampler(), name="bandwidth-sampler")
+ 
+     async def wazuh_sync_task():
+         from ..db import SessionLocal
+@@ -139,6 +205,6 @@ async def run_startup():
+                 db.close()
+             await asyncio.sleep(60)
+     if settings.ENABLE_WAZUH_SOURCE:
+-        asyncio.create_task(wazuh_sync_task())
++        _spawn(wazuh_sync_task(), name="wazuh-sync")
+     else:
+         logger.info("Source Wazuh désactivée — sync ignoré")
+diff --git a/backend/app/application/response/actions.py b/backend/app/application/response/actions.py
+index a2e7fec..e8069ee 100644
+--- a/backend/app/application/response/actions.py
++++ b/backend/app/application/response/actions.py
+@@ -48,7 +48,7 @@ def _notify_handler(db, run: ResponseRun, params: dict) -> tuple[bool, dict | No
+         db.flush()
+         channel = db.query(NotificationChannel).filter(
+             NotificationChannel.tenant_id == tenant_id,
+-            NotificationChannel.enabled == True,
++            NotificationChannel.enabled.is_(True),
+         ).first()
+         if channel:
+             cfg = decrypt_config(channel.config)
+diff --git a/backend/app/application/soar/executor.py b/backend/app/application/soar/executor.py
+index d3066f7..9add215 100644
+--- a/backend/app/application/soar/executor.py
++++ b/backend/app/application/soar/executor.py
+@@ -245,7 +245,7 @@ def _run_step(db, run: PlaybookRun, idx: int, step: dict[str, Any], default_time
+         if step_type == "block_ip":
+             return _block_ip(db, run, params, ctx)
+ 
+-        return {"status": "failed", "error": "type de step inconnu: %s" % step_type}
++        return {"status": "failed", "error": f"type de step inconnu: {step_type}"}
+     except Exception as e:
+         logger.exception("Step %d du run %s échoué", idx, run.id)
+         return {"status": "failed", "error": str(e)}
+@@ -254,7 +254,7 @@ def _run_step(db, run: PlaybookRun, idx: int, step: dict[str, Any], default_time
+ def _run_task(db, run: PlaybookRun, params: dict[str, Any], ctx: dict[str, str]) -> dict[str, Any]:
+     task_name = params.get("task")
+     if task_name not in ALLOWED_TASKS:
+-        return {"status": "failed", "error": "tâche non autorisée: %s" % task_name}
++        return {"status": "failed", "error": f"tâche non autorisée: {task_name}"}
+ 
+     if task_name == "reload_suricata":
+         # À CONFIRMER à l'implémentation : signature exacte du service Suricata
+@@ -271,7 +271,7 @@ def _run_task(db, run: PlaybookRun, params: dict[str, Any], ctx: dict[str, str])
+             return {"status": "success", "output": {"dispatched": True, "target": target}}
+         return {"status": "failed", "error": "run_nmap_task indisponible"}
+ 
+-    return {"status": "failed", "error": "tâche inconnue: %s" % task_name}
++    return {"status": "failed", "error": f"tâche inconnue: {task_name}"}
+ 
+ 
+ def _wazuh_token(base: str, user: str, password: str) -> str:
+diff --git a/backend/app/application/surveillance.py b/backend/app/application/surveillance.py
+index 565112e..09f4660 100644
+--- a/backend/app/application/surveillance.py
++++ b/backend/app/application/surveillance.py
+@@ -78,7 +78,7 @@ class SurveillanceService:
+             db.query(AccessLog)
+             .filter(
+                 AccessLog.username == username,
+-                AccessLog.is_online == True,
++                AccessLog.is_online.is_(True),
+                 AccessLog.tenant_id == tenant_id,
+             )
+             .order_by(desc(AccessLog.login_time))
+@@ -102,7 +102,7 @@ class SurveillanceService:
+     def get_online_users(self, db: Session, tenant_id: str = "default"):
+         return (
+             db.query(AccessLog)
+-            .filter(AccessLog.is_online == True, AccessLog.tenant_id == tenant_id)
++            .filter(AccessLog.is_online.is_(True), AccessLog.tenant_id == tenant_id)
+             .order_by(desc(AccessLog.login_time))
+             .all()
+         )
+@@ -131,7 +131,7 @@ class SurveillanceService:
+ 
+         users_online = (
+             db.query(AccessLog)
+-            .filter(AccessLog.is_online == True, AccessLog.tenant_id == tenant_id)
++            .filter(AccessLog.is_online.is_(True), AccessLog.tenant_id == tenant_id)
+             .count()
+         )
+ 
+@@ -151,7 +151,7 @@ class SurveillanceService:
+ 
+         total_with_face = (
+             db.query(AccessLog)
+-            .filter(AccessLog.face_verified == True, AccessLog.tenant_id == tenant_id)
++            .filter(AccessLog.face_verified.is_(True), AccessLog.tenant_id == tenant_id)
+             .count()
+         )
+         total_all = db.query(AccessLog).filter(AccessLog.tenant_id == tenant_id).count()
+diff --git a/backend/app/application/wazuh/ai_reporting.py b/backend/app/application/wazuh/ai_reporting.py
+index 0ed39a3..8f1e8ce 100644
+--- a/backend/app/application/wazuh/ai_reporting.py
++++ b/backend/app/application/wazuh/ai_reporting.py
+@@ -121,10 +121,14 @@ Be direct, use bullet points, under 200 words."""
+                 by_sev = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+                 for a in suricata_alerts:
+                     s = int(a.severity or 0)
+-                    if s >= 7: by_sev["critical"] += 1
+-                    elif s >= 5: by_sev["high"] += 1
+-                    elif s >= 3: by_sev["medium"] += 1
+-                    else: by_sev["low"] += 1
++                    if s >= 7:
++                        by_sev["critical"] += 1
++                    elif s >= 5:
++                        by_sev["high"] += 1
++                    elif s >= 3:
++                        by_sev["medium"] += 1
++                    else:
++                        by_sev["low"] += 1
+                 recent_lines = [f"- [{a.timestamp.strftime('%H:%M')}] S{a.severity}: {self._sanitize(a.alert_msg)} ({a.src_ip}->{a.dest_ip} {a.proto})" for a in suricata_alerts[:5]]
+                 alert_summary = f"Critical:{by_sev['critical']} High:{by_sev['high']} Medium:{by_sev['medium']} Low:{by_sev['low']}\n" + "\n".join(recent_lines)
+         except Exception as e:
+diff --git a/backend/app/application/wazuh/topology.py b/backend/app/application/wazuh/topology.py
+index a3f34d6..cee8135 100644
+--- a/backend/app/application/wazuh/topology.py
++++ b/backend/app/application/wazuh/topology.py
+@@ -41,18 +41,24 @@ class WazuhTopology:
+         nodes.append({
+             "id": "manager",
+             "type": "custom",
+-            "data": {"label": "Wazuh Manager", "status": "normal", "ip": "127.0.0.1", "type": "manager", "os": "Linux"},
++            # Le statut du manager reflète la réalité de la connexion, pas "normal" en dur.
++            "data": {
++                "label": "Wazuh Manager",
++                "status": "normal" if self._wazuh_available else "unavailable",
++                "ip": "127.0.0.1",
++                "type": "manager",
++                "os": "Linux",
++            },
+             "position": {"x": 0, "y": 0}
+         })
+ 
+-        # If Wazuh is unavailable and we have no agents, provide mock topology for UI
+-        if not agents and not self._wazuh_available:
+-            mock_agents = [
+-                {"id": "001", "name": "Workstation-01", "status": "active", "ip": "192.168.1.10", "os": {"name": "Windows 10"}},
+-                {"id": "002", "name": "Server-01", "status": "active", "ip": "192.168.1.20", "os": {"name": "Ubuntu 22.04"}},
+-                {"id": "003", "name": "Laptop-01", "status": "disconnected", "ip": "192.168.1.30", "os": {"name": "Windows 11"}},
+-            ]
+-            agents = mock_agents
++        # Plus de « mock topology for UI » : trois hôtes inventés
++        # (Workstation-01/Server-01/Laptop-01, IPs 192.168.1.x) étaient renvoyés
++        # dès que Wazuh était injoignable. Un analyste voyait donc un parc fictif
++        # présenté comme réel — exactement ce qu'un outil de défense ne doit jamais
++        # faire. On renvoie désormais l'état vide + un drapeau explicite que le
++        # frontend affiche comme « source indisponible ».
++        source_unavailable = bool(not agents and not self._wazuh_available)
+ 
+         for agent in agents:
+             agent_id = agent['id']
+diff --git a/backend/app/core/config.py b/backend/app/core/config.py
+index 82aa3b8..2fa9cba 100644
+--- a/backend/app/core/config.py
++++ b/backend/app/core/config.py
+@@ -3,12 +3,31 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
+ 
+ 
+ class Settings(BaseSettings):
+-    DATABASE_URL: str = "postgresql+pg8000://postgres:saif@localhost:5432/postgres"
++    # Pas de mot de passe committé dans le DSN par défaut : un secret dans le code
++    # est un secret qui fuit (il reste dans l'historique git pour toujours). Passez
++    # par la variable d'environnement DATABASE_URL, ou par POSTGRES_USER /
++    # POSTGRES_PASSWORD que docker-compose injecte déjà.
++    DATABASE_URL: str = "postgresql+pg8000://postgres@localhost:5432/postgres"
+     SCAN_INTERVAL_SECONDS: int = 10
++
++    # ── Honeypot ────────────────────────────────────────────────────────────
++    # Opt-in : le honeypot ouvre des ports en écoute sur 0.0.0.0. C'est une
++    # surface d'attaque assumée, elle ne doit pas être active par défaut.
++    ENABLE_HONEYPOT: bool = False
++    # Liste vide => les 4 ports historiques (2323, 3389, 8443, 5555).
++    HONEYPOT_PORTS: list[int] = Field(default_factory=list)
+     JWT_SECRET_KEY: SecretStr
+     JWT_ALGORITHM: str = "HS256"
+     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+     ENVIRONMENT: str = "development"
++    # Derrière un reverse proxy, `request.client.host` vaut l'IP du proxy : tous les
++    # utilisateurs partageraient un seul seau de rate-limit. Activer ceci fait lire
++    # X-Forwarded-For — à ne mettre à true QUE si un proxy de confiance est devant,
++    # sinon l'en-tête est forgeable et la limite saute.
++    TRUST_PROXY_HEADERS: bool = False
++    # true en dev (create_all() au démarrage), à passer à false en production où
++    # le schéma doit venir de `alembic upgrade head`.
++    AUTO_CREATE_SCHEMA: bool = True
+     API_KEY: SecretStr
+ 
+     WAZUH_API_URL: str = "https://127.0.0.1:45000"
+diff --git a/backend/app/infrastructure/face/face_service.py b/backend/app/infrastructure/face/face_service.py
+index 22c9022..6a62b6b 100644
+--- a/backend/app/infrastructure/face/face_service.py
++++ b/backend/app/infrastructure/face/face_service.py
+@@ -291,7 +291,10 @@ class FaceService:
+             faces = _try_pass(big, "upscaled")
+             if faces is not None:
+                 (x, y, fw, fh) = faces[0]
+-                x //= scale; y //= scale; fw //= scale; fh //= scale
++                x //= scale
++                y //= scale
++                fw //= scale
++                fh //= scale
+                 return gray[y:y + fh, x:x + fw]
+ 
+         logger.info("  face not found after all passes")
+diff --git a/backend/app/infrastructure/hf_router/__init__.py b/backend/app/infrastructure/hf_router/__init__.py
+index 9018898..41df67d 100644
+--- a/backend/app/infrastructure/hf_router/__init__.py
++++ b/backend/app/infrastructure/hf_router/__init__.py
+@@ -1,2 +1,7 @@
+ """HF Router client."""
+-from app.infrastructure.hf_router.client import call_hf_router
++
++# Explicit re-export (PEP 484): this package is a facade over .client, so the name
++# is imported for other modules to use, not to be called here.
++from app.infrastructure.hf_router.client import call_hf_router as call_hf_router
++
++__all__ = ["call_hf_router"]
+diff --git a/backend/app/infrastructure/jobs/ai_tasks.py b/backend/app/infrastructure/jobs/ai_tasks.py
+index 3ee9eb9..ffeb8c5 100644
+--- a/backend/app/infrastructure/jobs/ai_tasks.py
++++ b/backend/app/infrastructure/jobs/ai_tasks.py
+@@ -103,10 +103,14 @@ def analyze_network_global_task(tenant_id: str = "default"):
+             by_sev = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+             for a in suricata_alerts:
+                 s = int(a.severity or 0)
+-                if s >= 7:   by_sev["critical"] += 1
+-                elif s >= 5: by_sev["high"]     += 1
+-                elif s >= 3: by_sev["medium"]   += 1
+-                else:        by_sev["low"]      += 1
++                if s >= 7:
++                    by_sev["critical"] += 1
++                elif s >= 5:
++                    by_sev["high"] += 1
++                elif s >= 3:
++                    by_sev["medium"] += 1
++                else:
++                    by_sev["low"] += 1
+ 
+             recent_lines = [
+                 f"- [{a.timestamp.strftime('%H:%M')}] S{a.severity}: "
+diff --git a/backend/app/infrastructure/jobs/reporting_tasks.py b/backend/app/infrastructure/jobs/reporting_tasks.py
+index 779648f..4575da8 100644
+--- a/backend/app/infrastructure/jobs/reporting_tasks.py
++++ b/backend/app/infrastructure/jobs/reporting_tasks.py
+@@ -111,7 +111,7 @@ def process_scheduled_reports_task() -> dict:
+     try:
+         now = datetime.now(UTC)
+         schedules = db.query(ReportSchedule).filter(
+-            ReportSchedule.is_active == True,
++            ReportSchedule.is_active.is_(True),
+             ReportSchedule.next_run_at <= now,
+         ).all()
+ 
+diff --git a/backend/app/infrastructure/network_device/command_builder.py b/backend/app/infrastructure/network_device/command_builder.py
+index 60bfe20..a44588a 100644
+--- a/backend/app/infrastructure/network_device/command_builder.py
++++ b/backend/app/infrastructure/network_device/command_builder.py
+@@ -1,10 +1,10 @@
+ 
+ def _sec(c, *lines):
+     """Collect non-empty lines."""
+-    return [l for l in lines if l]
++    return [line for line in lines if line]
+ 
+ 
+-def _CiscoIOS_cmds(c: dict, device_type: str = "switch") -> list:
++def _cisco_ios_cmds(c: dict, device_type: str = "switch") -> list:
+     """Cisco IOS / IOS-XE / IOS-XR style commands (also Arista EOS, Aruba, Dell OS9/OS10, Netgear)."""
+     cmds = []
+     sec = c.get("Sécurité", {})
+@@ -124,7 +124,7 @@ def _CiscoIOS_cmds(c: dict, device_type: str = "switch") -> list:
+     return cmds
+ 
+ 
+-def _CiscoIOS_sec(c, cmds):
++def _cisco_ios_sec(c, cmds):
+     """Shared security commands for IOS-like brands."""
+     sec = c.get("Sécurité", {})
+     enable_pw = sec.get("enable_password", "")
+@@ -796,11 +796,11 @@ def _zyxel_cmds(c: dict, device_type: str = "switch") -> list:
+ # ═══════════════════════════════════════════════════════════════════
+ 
+ _GENERATORS = {
+-    "cisco":    _CiscoIOS_cmds,
+-    "arista":   _CiscoIOS_cmds,
+-    "aruba":    _CiscoIOS_cmds,
+-    "dell":     _CiscoIOS_cmds,
+-    "netgear":  _CiscoIOS_cmds,
++    "cisco":    _cisco_ios_cmds,
++    "arista":   _cisco_ios_cmds,
++    "aruba":    _cisco_ios_cmds,
++    "dell":     _cisco_ios_cmds,
++    "netgear":  _cisco_ios_cmds,
+     "mikrotik": _mikrotik_cmds,
+     "huawei":   _huawei_vrp_cmds,
+     "juniper":  _juniper_junos_cmds,
+diff --git a/backend/app/infrastructure/scanner.py b/backend/app/infrastructure/scanner.py
+index 244c3bb..6faf130 100644
+--- a/backend/app/infrastructure/scanner.py
++++ b/backend/app/infrastructure/scanner.py
+@@ -1,159 +1,159 @@
+-import asyncio
+-import ctypes
+-import logging
+-import os
+-import socket
+-from datetime import UTC, datetime
+-
+-import psutil
+-from scapy.all import ARP, Ether, conf, srp
+-from sqlalchemy.orm import Session
+-
+-from ..models import ConnectionLog, Device
+-
+-logger = logging.getLogger(__name__)
+-
+-if os.name == 'nt':
+-    conf.use_pcap = True
+-
+-def get_active_interfaces():
+-    """Identifie les noms d'interfaces et leurs sous-réseaux associés, en évitant les interfaces virtuelles."""
+-    interfaces_to_scan = []
+-    try:
+-        stats = psutil.net_if_stats()
+-        addrs = psutil.net_if_addrs()
+-
+-        for name, addr_list in addrs.items():
+-            # Vérifie si l'interface est active
+-            if name in stats and stats[name].isup:
+-                # Filtre les interfaces virtuelles courantes
+-                if any(virtual in name.lower() for virtual in ['vbox', 'virtual', 'docker', 'wsl', 'vmware', 'vpn', 'pseudo']):
+-                    continue
+-
+-                for addr in addr_list:
+-                    # Filtrage IPv4 pour éviter les adresses fe80::
+-                    if addr.family == socket.AF_INET and addr.address != '127.0.0.1':
+-                        ip = addr.address
+-                        subnet = ".".join(ip.split('.')[:-1]) + ".0/24"
+-                        interfaces_to_scan.append({
+-                            "iface_name": name,
+-                            "subnet": subnet
+-                        })
+-    except Exception as e:
+-        logger.error(f"Error getting active interfaces: {e}")
+-    return interfaces_to_scan
+-
+-_root_warned = False
+-
+-def scan_network():
+-    """Effectue un scan ARP sur chaque carte réseau physique détectée."""
+-    global _root_warned
+-
+-    is_admin = False
+-    if os.name == 'nt':
+-        try:
+-            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+-        except Exception:
+-            pass
+-    else:
+-        is_admin = os.getuid() == 0
+-
+-    if not is_admin:
+-        if not _root_warned:
+-            logger.warning("Not running as root — ARP scan disabled. Run with sudo for network discovery.")
+-            _root_warned = True
+-        return []
+-
+-    all_devices = []
+-    target_interfaces = get_active_interfaces()
+-
+-    if not target_interfaces:
+-        if not _root_warned:
+-            logger.warning("No active physical interfaces found to scan.")
+-            _root_warned = True
+-
+-    for target in target_interfaces:
+-        arp_request = ARP(pdst=target['subnet'])
+-        broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
+-        packet = broadcast / arp_request
+-
+-        try:
+-            ans, _ = srp(packet, iface=target['iface_name'], timeout=3, verbose=False)
+-
+-            for sent, received in ans:
+-                all_devices.append({
+-                    "ip": received.psrc,
+-                    "mac": received.hwsrc,
+-                    "is_online": True
+-                })
+-        except Exception as e:
+-            logger.error("Scan error on interface %s: %s", target['iface_name'], e)
+-
++import asyncio
++import ctypes
++import logging
++import os
++import socket
++from datetime import UTC, datetime
++
++import psutil
++from scapy.all import ARP, Ether, conf, srp
++from sqlalchemy.orm import Session
++
++from ..models import ConnectionLog, Device
++
++logger = logging.getLogger(__name__)
++
++if os.name == 'nt':
++    conf.use_pcap = True
++
++def get_active_interfaces():
++    """Identifie les noms d'interfaces et leurs sous-réseaux associés, en évitant les interfaces virtuelles."""
++    interfaces_to_scan = []
++    try:
++        stats = psutil.net_if_stats()
++        addrs = psutil.net_if_addrs()
++
++        for name, addr_list in addrs.items():
++            # Vérifie si l'interface est active
++            if name in stats and stats[name].isup:
++                # Filtre les interfaces virtuelles courantes
++                if any(virtual in name.lower() for virtual in ['vbox', 'virtual', 'docker', 'wsl', 'vmware', 'vpn', 'pseudo']):
++                    continue
++
++                for addr in addr_list:
++                    # Filtrage IPv4 pour éviter les adresses fe80::
++                    if addr.family == socket.AF_INET and addr.address != '127.0.0.1':
++                        ip = addr.address
++                        subnet = ".".join(ip.split('.')[:-1]) + ".0/24"
++                        interfaces_to_scan.append({
++                            "iface_name": name,
++                            "subnet": subnet
++                        })
++    except Exception as e:
++        logger.error(f"Error getting active interfaces: {e}")
++    return interfaces_to_scan
++
++_root_warned = False
++
++def scan_network():
++    """Effectue un scan ARP sur chaque carte réseau physique détectée."""
++    global _root_warned
++
++    is_admin = False
++    if os.name == 'nt':
++        try:
++            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
++        except Exception:
++            pass
++    else:
++        is_admin = os.getuid() == 0
++
++    if not is_admin:
++        if not _root_warned:
++            logger.warning("Not running as root — ARP scan disabled. Run with sudo for network discovery.")
++            _root_warned = True
++        return []
++
++    all_devices = []
++    target_interfaces = get_active_interfaces()
++
++    if not target_interfaces:
++        if not _root_warned:
++            logger.warning("No active physical interfaces found to scan.")
++            _root_warned = True
++
++    for target in target_interfaces:
++        arp_request = ARP(pdst=target['subnet'])
++        broadcast = Ether(dst="ff:ff:ff:ff:ff:ff")
++        packet = broadcast / arp_request
++
++        try:
++            ans, _ = srp(packet, iface=target['iface_name'], timeout=3, verbose=False)
++
++            for sent, received in ans:
++                all_devices.append({
++                    "ip": received.psrc,
++                    "mac": received.hwsrc,
++                    "is_online": True
++                })
++        except Exception as e:
++            logger.error("Scan error on interface %s: %s", target['iface_name'], e)
++
+     return all_devices
+-
+-async def background_scanner(db_factory, broadcaster, interval: int):
+-    """Boucle de scan en arrière-plan avec mise à jour de la base de données."""
+-    while True:
+-        db: Session = db_factory()
+-        try:
+-            now = datetime.now(UTC)
+-            # Correction : seen est une liste de dict, pas de tuples
+-            seen = scan_network()
+-            online_ids = set()
+-
+-            for item in seen:
+-                ip = item["ip"]
+-                mac = item["mac"]
+-
+-                # 1. Gestion des conflits d'IP (Unique constraint)
+-                # Si l'IP est déjà attribuée à un AUTRE MAC, on libère l'IP du vieux record
+-                stale_device = db.query(Device).filter(Device.ip == ip, Device.mac != mac).first()
+-                if stale_device:
+-                    stale_device.ip = None
+-                    stale_device.is_online = False
+-                    db.flush()
+-
+-                # 2. Recherche ou Création par MAC (Identifiant matériel stable)
+-                dev = db.query(Device).filter(Device.mac == mac).first()
+-
+-                if not dev:
+-                    dev = Device(ip=ip, mac=mac, is_online=True)
+-                    db.add(dev)
+-                    db.flush()
+-                    db.add(ConnectionLog(device_id=dev.id, status=True, start_time=now))
+-                    await broadcaster({"device_id": dev.id, "status": True, "time": now.isoformat()})
+-                else:
+-                    online_ids.add(dev.id)
+-                    dev.ip = ip # Mise à jour propre
+-                    if not dev.is_online:
+-                        dev.is_online = True
+-                        db.add(ConnectionLog(device_id=dev.id, status=True, start_time=now))
+-                        await broadcaster({"device_id": dev.id, "status": True, "time": now.isoformat()})
+-
+-            # Gestion des appareils qui sont passés hors ligne
+-            online_in_db = db.query(Device).filter(Device.is_online == True).all()
+-            for dev in online_in_db:
+-                if dev.id not in online_ids:
+-                    dev.is_online = False
+-                    # Fermeture du log de connexion précédent
+-                    last_log = (
+-                        db.query(ConnectionLog)
+-                        .filter(ConnectionLog.device_id == dev.id, ConnectionLog.end_time == None)
+-                        .order_by(ConnectionLog.start_time.desc())
+-                        .first()
+-                    )
+-                    if last_log:
+-                        last_log.end_time = now
+-
+-                    # Ajout d'un log de déconnexion
+-                    db.add(ConnectionLog(device_id=dev.id, status=False, start_time=now, end_time=now))
+-                    await broadcaster({"device_id": dev.id, "status": False, "time": now.isoformat()})
+-
+-            db.commit() # Sauvegarde globale de la session
+-        except Exception as e:
+-            logger.error("Scan error: %s", e)
+-            db.rollback()
+-        finally:
+-            db.close()
+-
+-        await asyncio.sleep(interval)
++
++async def background_scanner(db_factory, broadcaster, interval: int):
++    """Boucle de scan en arrière-plan avec mise à jour de la base de données."""
++    while True:
++        db: Session = db_factory()
++        try:
++            now = datetime.now(UTC)
++            # Correction : seen est une liste de dict, pas de tuples
++            seen = scan_network()
++            online_ids = set()
++
++            for item in seen:
++                ip = item["ip"]
++                mac = item["mac"]
++
++                # 1. Gestion des conflits d'IP (Unique constraint)
++                # Si l'IP est déjà attribuée à un AUTRE MAC, on libère l'IP du vieux record
++                stale_device = db.query(Device).filter(Device.ip == ip, Device.mac != mac).first()
++                if stale_device:
++                    stale_device.ip = None
++                    stale_device.is_online = False
++                    db.flush()
++
++                # 2. Recherche ou Création par MAC (Identifiant matériel stable)
++                dev = db.query(Device).filter(Device.mac == mac).first()
++
++                if not dev:
++                    dev = Device(ip=ip, mac=mac, is_online=True)
++                    db.add(dev)
++                    db.flush()
++                    db.add(ConnectionLog(device_id=dev.id, status=True, start_time=now))
++                    await broadcaster({"device_id": dev.id, "status": True, "time": now.isoformat()})
++                else:
++                    online_ids.add(dev.id)
++                    dev.ip = ip # Mise à jour propre
++                    if not dev.is_online:
++                        dev.is_online = True
++                        db.add(ConnectionLog(device_id=dev.id, status=True, start_time=now))
++                        await broadcaster({"device_id": dev.id, "status": True, "time": now.isoformat()})
++
++            # Gestion des appareils qui sont passés hors ligne
++            online_in_db = db.query(Device).filter(Device.is_online.is_(True)).all()
++            for dev in online_in_db:
++                if dev.id not in online_ids:
++                    dev.is_online = False
++                    # Fermeture du log de connexion précédent
++                    last_log = (
++                        db.query(ConnectionLog)
++                        .filter(ConnectionLog.device_id == dev.id, ConnectionLog.end_time.is_(None))
++                        .order_by(ConnectionLog.start_time.desc())
++                        .first()
++                    )
++                    if last_log:
++                        last_log.end_time = now
++
++                    # Ajout d'un log de déconnexion
++                    db.add(ConnectionLog(device_id=dev.id, status=False, start_time=now, end_time=now))
++                    await broadcaster({"device_id": dev.id, "status": False, "time": now.isoformat()})
++
++            db.commit() # Sauvegarde globale de la session
++        except Exception as e:
++            logger.error("Scan error: %s", e)
++            db.rollback()
++        finally:
++            db.close()
++
++        await asyncio.sleep(interval)
+diff --git a/backend/app/infrastructure/wazuh/client.py b/backend/app/infrastructure/wazuh/client.py
+index 414e608..5bd5a3c 100644
+--- a/backend/app/infrastructure/wazuh/client.py
++++ b/backend/app/infrastructure/wazuh/client.py
+@@ -263,7 +263,21 @@ class WazuhAPIClient:
+     async def get_agent_hardware(self, agent_id: str) -> dict[str, Any]:
+         token = await self._get_token()
+         if not token:
+-            return {"cpu_name": "Intel Core i7-10700K (Mock)", "ram_total": 16777216, "ram_free": 8388608, "os_name": "Ubuntu Linux", "os_version": "22.04 LTS", "board_serial": "MB-X99-PRO"}
++            # Avant : {"cpu_name": "Intel Core i7-10700K (Mock)", "ram_total": 16777216,
++            # "ram_free": 8388608, "os_name": "Ubuntu Linux", "os_version": "22.04 LTS",
++            # "board_serial": "MB-X99-PRO"} — un inventaire matériel complet, inventé,
++            # renvoyé comme s'il venait de l'agent. Les clés sont conservées (pour ne
++            # casser aucun consommateur) mais nulles, avec "available": False.
++            return {
++                "available": False,
++                "reason": "wazuh_unauthenticated",
++                "cpu_name": None,
++                "ram_total": None,
++                "ram_free": None,
++                "os_name": None,
++                "os_version": None,
++                "board_serial": None,
++            }
+ 
+         try:
+             async with httpx.AsyncClient(verify=ssl_ctx) as client:
+@@ -279,7 +293,8 @@ class WazuhAPIClient:
+                     return {"cpu_name": "Unknown Processor (Data Unavailable)", "ram_total": 0, "ram_free": 0, "os_name": "Unknown", "board_serial": "N/A"}
+                 if response.status_code == 200:
+                     items = response.json().get('data', {}).get('affected_items', [])
+-                    if items: return items[0]
++                    if items:
++                        return items[0]
+         except httpx.ConnectError:
+             self._wazuh_available = False
+             return {"cpu_name": "Unknown Processor (Data Unavailable)", "ram_total": 0, "ram_free": 0, "os_name": "Unknown", "board_serial": "N/A"}
+diff --git a/backend/app/interface/api/admin.py b/backend/app/interface/api/admin.py
+index ac10163..ee0792e 100644
+--- a/backend/app/interface/api/admin.py
++++ b/backend/app/interface/api/admin.py
+@@ -104,16 +104,16 @@ async def get_actions(
+     return {
+         "items": [
+             {
+-                "id": l.id,
+-                "username": l.username,
+-                "action": l.action,
+-                "details": l.details,
+-                "resource": l.resource,
+-                "ip_address": l.ip_address,
+-                "face_verified": l.face_verified,
+-                "timestamp": l.timestamp.isoformat(),
++                "id": entry.id,
++                "username": entry.username,
++                "action": entry.action,
++                "details": entry.details,
++                "resource": entry.resource,
++                "ip_address": entry.ip_address,
++                "face_verified": entry.face_verified,
++                "timestamp": entry.timestamp.isoformat(),
+             }
+-            for l in logs
++            for entry in logs
+         ],
+         "total": total,
+     }
+@@ -127,7 +127,7 @@ async def get_analysts(
+ ):
+     online_users = (
+         query_with_tenant(AccessLog, request, db)
+-        .filter(AccessLog.is_online == True)
++        .filter(AccessLog.is_online.is_(True))
+         .order_by(desc(AccessLog.login_time))
+         .all()
+     )
+@@ -166,13 +166,13 @@ async def get_analyst_actions(
+     )
+     return [
+         {
+-            "id": l.id,
+-            "action": l.action,
+-            "details": l.details,
+-            "resource": l.resource,
+-            "timestamp": l.timestamp.isoformat(),
++            "id": entry.id,
++            "action": entry.action,
++            "details": entry.details,
++            "resource": entry.resource,
++            "timestamp": entry.timestamp.isoformat(),
+         }
+-        for l in logs
++        for entry in logs
+     ]
+ 
+ 
+@@ -193,15 +193,15 @@ async def get_analyst_sessions(
+     )
+     return [
+         {
+-            "id": l.id,
+-            "login_time": l.login_time.isoformat(),
+-            "logout_time": l.logout_time.isoformat() if l.logout_time else None,
+-            "is_online": l.is_online,
+-            "session_duration": l.session_duration,
+-            "face_verified": l.face_verified,
+-            "login_method": l.login_method,
++            "id": entry.id,
++            "login_time": entry.login_time.isoformat(),
++            "logout_time": entry.logout_time.isoformat() if entry.logout_time else None,
++            "is_online": entry.is_online,
++            "session_duration": entry.session_duration,
++            "face_verified": entry.face_verified,
++            "login_method": entry.login_method,
+         }
+-        for l in logs
++        for entry in logs
+     ]
+ 
+ 
+@@ -215,7 +215,7 @@ async def get_admin_stats(
+     today_start = datetime(today.year, today.month, today.day)
+ 
+     total_analysts = query_with_tenant(ActionLog, request, db).with_entities(ActionLog.username).distinct().count()
+-    active_sessions = query_with_tenant(AccessLog, request, db).filter(AccessLog.is_online == True).count()
++    active_sessions = query_with_tenant(AccessLog, request, db).filter(AccessLog.is_online.is_(True)).count()
+ 
+     total_actions_today = (
+         query_with_tenant(ActionLog, request, db)
+diff --git a/backend/app/interface/api/analyse.py b/backend/app/interface/api/analyse.py
+index 1cad394..ec260fb 100644
+--- a/backend/app/interface/api/analyse.py
++++ b/backend/app/interface/api/analyse.py
+@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
+ 
+ from ...auth import has_scopes_or_api_key
+ from ...config import settings
++from ...db import SessionLocal, get_db, get_tenant_id, query_with_tenant
++from ...schemas import ThreatAnalysisRequest
++from ...services.system_config_service import get_config_value
+ 
+ 
+ def _sanitize(text: str) -> str:
+@@ -17,9 +20,7 @@ def _sanitize(text: str) -> str:
+     text = re.sub(r'<img[^>]*>', '', text)
+     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+     return text.strip()[:500]
+-from ...db import SessionLocal, get_db, get_tenant_id, query_with_tenant
+-from ...schemas import ThreatAnalysisRequest
+-from ...services.system_config_service import get_config_value
++
+ 
+ logger = logging.getLogger(__name__)
+ 
+diff --git a/backend/app/interface/api/auth.py b/backend/app/interface/api/auth.py
+index c741b7f..d8423dc 100644
+--- a/backend/app/interface/api/auth.py
++++ b/backend/app/interface/api/auth.py
+@@ -52,20 +52,73 @@ VIEWER_SCOPES = [
+ ]
+ 
+ 
+-async def check_rate_limit(request: Request, max_attempts: int = 5, window_seconds: int = 60):
+-    client_ip = request.client.host if request.client else "unknown"
+-    key = f"ratelimit:auth:{client_ip}"
++def _client_ip(request: Request) -> str:
++    """IP du pair, en tenant compte d'un reverse proxy de confiance.
++
++    `request.client.host` est l'adresse TCP du pair direct. Derrière nginx/Traefik
++    c'est toujours l'IP du proxy, donc tous les utilisateurs partageraient UN seul
++    seau de rate-limit (déni de service mutuel). On ne lit X-Forwarded-For que si
++    TRUST_PROXY_HEADERS=true : sinon n'importe qui peut forger l'en-tête et faire
++    sauter la limite.
++    """
++    if request is None:
++        return "unknown"
++    if settings.TRUST_PROXY_HEADERS:
++        xff = request.headers.get("X-Forwarded-For")
++        if xff:
++            first_hop = xff.split(",")[0].strip()
++            if first_hop:
++                return first_hop
++    return request.client.host if request.client else "unknown"
++
++
++async def check_rate_limit(
++    request: Request,
++    max_attempts: int = 5,
++    window_seconds: int = 60,
++    username: str | None = None,
++):
++    """Limite les tentatives par IP **et** par compte visé.
++
++    Deux failles de la version précédente :
++
++    1. Clé IP seule. Un attaquant distribué (botnet, VPN, plusieurs IPs)
++       brute-force un compte sans jamais atteindre le seuil — et à l'inverse tout
++       un bureau derrière un NAT partage un seul seau. On compte donc aussi par
++       nom d'utilisateur ciblé, quel que soit l'IP d'origine.
++    2. `except _redis.ConnectionError: pass` → le rate-limit disparaissait pile
++       quand Redis tombait (fail-open). En production on échoue désormais
++       **fermé** (503) : refuser les logins vaut mieux que les laisser illimités.
++       `RedisError` couvre aussi TimeoutError, qui faisait auparavant tomber
++       /auth/token en 500.
++    """
++    buckets = [f"ratelimit:auth:ip:{_client_ip(request)}"]
++    if username:
++        ident = username.strip().lower()
++        if ident:
++            buckets.append(f"ratelimit:auth:user:{ident}")
++
+     try:
+-        count = _redis_client.incr(key)
+-        if count == 1:
+-            _redis_client.expire(key, window_seconds)
+-        if count > max_attempts:
++        for key in buckets:
++            count = _redis_client.incr(key)
++            if count == 1:
++                _redis_client.expire(key, window_seconds)
++            if count > max_attempts:
++                raise HTTPException(
++                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
++                    detail="Trop de tentatives. Réessayez dans une minute.",
++                )
++    except _redis.RedisError as exc:
++        if settings.ENVIRONMENT.strip().lower() == "production":
++            logger.error("Rate-limit indisponible (Redis: %s) — échec fermé en production", exc)
+             raise HTTPException(
+-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+-                detail="Trop de tentatives. Réessayez dans une minute.",
+-            )
+-    except _redis.ConnectionError:
+-        pass  # Fail open if Redis is down
++                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
++                detail="Service d'authentification temporairement indisponible.",
++            ) from exc
++        logger.warning(
++            "Rate-limit indisponible (Redis: %s) — fail-open en environnement %s",
++            exc, settings.ENVIRONMENT,
++        )
+ 
+ 
+ def _validate_password_strength(password: str) -> None:
+@@ -88,7 +141,9 @@ class RegisterRequest(BaseModel):
+ 
+ @router.post("/register")
+ async def register_user(data: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+-    await check_rate_limit(request, max_attempts=3, window_seconds=300)
++    await check_rate_limit(
++        request, max_attempts=3, window_seconds=300, username=data.username
++    )
+     if not data.username.strip():
+         raise HTTPException(
+             status_code=status.HTTP_400_BAD_REQUEST,
+@@ -204,6 +259,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
+         request,
+         max_attempts=settings.AUTH_LOGIN_RATE_LIMIT_MAX,
+         window_seconds=settings.AUTH_LOGIN_RATE_LIMIT_WINDOW,
++        username=form_data.username,
+     )
+ 
+     # FIX: tenant_id=None made check_password() test the hash of EVERY tenant that has
+diff --git a/backend/app/interface/api/network_config.py b/backend/app/interface/api/network_config.py
+index 6871ab0..573d97c 100644
+--- a/backend/app/interface/api/network_config.py
++++ b/backend/app/interface/api/network_config.py
+@@ -7,6 +7,7 @@ import logging
+ import socket
+ import time
+ from datetime import UTC, datetime
++from pathlib import Path
+ from typing import Any
+ 
+ from fastapi import APIRouter, Depends, HTTPException, Request
+@@ -27,7 +28,6 @@ TEST_CONNECT_TIMEOUT = 3.0
+ 
+ # ─── Config Templates ───────────────────────────────────────────────
+ # Predefined configuration "puzzle pieces" per device type + brand
+-from pathlib import Path
+ 
+ _TEMPLATES_PATH = Path(__file__).resolve().parents[2] / "infrastructure" / "data" / "network_config_templates.json"
+ CONFIG_TEMPLATES = json.loads(_TEMPLATES_PATH.read_text(encoding="utf-8"))
+diff --git a/backend/app/interface/api/realtime.py b/backend/app/interface/api/realtime.py
+index 9f51401..61b132a 100644
+--- a/backend/app/interface/api/realtime.py
++++ b/backend/app/interface/api/realtime.py
+@@ -28,7 +28,7 @@ prev_time = time.time()
+ 
+ @router.get("/api/real-alerts", dependencies=[Depends(get_api_key_or_jwt)])
+ async def get_real_alerts(request: Request, limit: int = 50, db: Session = Depends(get_db)):
+-    """ 
++    """
+     Fetch latest security alerts from DATABASE, enriched with asset data.
+     """
+     db_alerts = query_with_tenant(Alert, request, db).order_by(desc(Alert.timestamp)).limit(min(limit, 500)).all()
+diff --git a/backend/app/interface/api/reporting.py b/backend/app/interface/api/reporting.py
+index 41ada9e..8ec2f28 100644
+--- a/backend/app/interface/api/reporting.py
++++ b/backend/app/interface/api/reporting.py
+@@ -258,10 +258,14 @@ def get_metrics(request: Request, db: Session = Depends(get_db)):
+ 
+     # ── Breakdown sévérité (échelle 0-15) ──
+     def _sev_bucket(n: int) -> str:
+-        if n <= 3: return "info"
+-        if n <= 6: return "low"
+-        if n <= 9: return "medium"
+-        if n <= 12: return "high"
++        if n <= 3:
++            return "info"
++        if n <= 6:
++            return "low"
++        if n <= 9:
++            return "medium"
++        if n <= 12:
++            return "high"
+         return "critical"
+ 
+     severity_breakdown = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+diff --git a/backend/app/interface/api/scan.py b/backend/app/interface/api/scan.py
+index 8a66e33..5040a97 100644
+--- a/backend/app/interface/api/scan.py
++++ b/backend/app/interface/api/scan.py
+@@ -38,7 +38,8 @@ def get_local_subnet():
+         potential_ifaces = []
+         for interface, addrs in interfaces.items():
+             is_up = stats[interface].isup if interface in stats else False
+-            if not is_up: continue
++            if not is_up:
++                continue
+ 
+             # Skip common virtual interface names
+             if any(virtual in interface.lower() for virtual in ['vbox', 'virtual', 'docker', 'wsl', 'vmware', 'vpn']):
+@@ -144,7 +145,8 @@ def scan_network(
+ 
+             # Robust MAC detection
+             mac = addresses.get('mac')
+-            if not mac and 'mac' in host_info: mac = host_info['mac']
++            if not mac and 'mac' in host_info:
++                mac = host_info['mac']
+ 
+             mac = (mac or 'UNKNOWN').upper()
+ 
+diff --git a/backend/app/interface/api/sensors.py b/backend/app/interface/api/sensors.py
+index aee9949..a7289af 100644
+--- a/backend/app/interface/api/sensors.py
++++ b/backend/app/interface/api/sensors.py
+@@ -82,7 +82,7 @@ async def get_all_bandwidth(
+     online_users = (
+         query_with_tenant(AccessLog, request, db)
+         .with_entities(AccessLog.username, AccessLog.ip_address)
+-        .filter(AccessLog.is_online == True)
++        .filter(AccessLog.is_online.is_(True))
+         .all()
+     )
+     usernames = [(u, ip) for u, ip in online_users]
+@@ -244,7 +244,7 @@ async def get_system_health(
+     today_suricata = query_with_tenant(SuricataAlert, request, db).filter(SuricataAlert.timestamp >= today_start).count()
+     critical_suricata = query_with_tenant(SuricataAlert, request, db).filter(SuricataAlert.severity <= 1).count()
+ 
+-    online_users = query_with_tenant(AccessLog, request, db).filter(AccessLog.is_online == True).count()
++    online_users = query_with_tenant(AccessLog, request, db).filter(AccessLog.is_online.is_(True)).count()
+     today_logins = query_with_tenant(AccessLog, request, db).filter(AccessLog.login_time >= today_start).count()
+ 
+     today_actions = query_with_tenant(ActionLog, request, db).filter(ActionLog.timestamp >= today_start).count()
+@@ -373,8 +373,16 @@ async def get_system_health(
+     }
+ 
+ 
+-async def sample_bandwidth_for_online_analysts(db_factory):
+-    """Background task: periodically sample server bandwidth and record per-analyst readings."""
++async def sample_server_bandwidth(db_factory):
++    """Échantillonne le débit **du serveur** (compteurs psutil de l'hôte).
++
++    Anciennement `sample_bandwidth_for_online_analysts` : la fonction divisait le
++    débit global du serveur par le nombre d'analystes connectés et écrivait une
++    ligne `NetworkSensor` par utilisateur, comme s'il s'agissait du trafic de
++    chacun. Ces chiffres étaient donc inventés — un analyste voyait « son » débit
++    alors que c'était 1/N du trafic de la machine. On n'écrit plus qu'une seule
++    mesure, clairement étiquetée côté serveur.
++    """
+     prev_io = psutil.net_io_counters()
+     prev_time = datetime.now(UTC).timestamp()
+ 
+@@ -399,34 +407,28 @@ async def sample_bandwidth_for_online_analysts(db_factory):
+             try:
+                 online = (
+                     db.query(AccessLog.username, AccessLog.ip_address, AccessLog.tenant_id)
+-                    .filter(AccessLog.is_online == True)
++                    .filter(AccessLog.is_online.is_(True))
+                     .all()
+                 )
+ 
++                # Une seule mesure, celle du serveur — plus de ventilation fictive
++                # par analyste. `online` n'est conservé que pour le log.
++                db.add(NetworkSensor(
++                    username="__server__",
++                    ip_address="127.0.0.1",
++                    tenant_id="default",
++                    bytes_sent=int(total_sent),
++                    bytes_recv=int(total_recv),
++                    bandwidth_mbps=round(total_mbps, 3),
++                    interface="server",
++                ))
+                 if online:
+-                    for username, ip_address, tenant_id in online:
+-                        per_user_mbps = total_mbps / len(online)
+-                        sensor = NetworkSensor(
+-                            username=username,
+-                            ip_address=ip_address,
+-                            tenant_id=tenant_id,
+-                            bytes_sent=int(total_sent / len(online)),
+-                            bytes_recv=int(total_recv / len(online)),
+-                            bandwidth_mbps=round(per_user_mbps, 3),
+-                            interface="all",
+-                        )
+-                        db.add(sensor)
+-                else:
+-                    sensor = NetworkSensor(
+-                        username="__server__",
+-                        ip_address="127.0.0.1",
+-                        tenant_id="default",
+-                        bytes_sent=int(total_sent),
+-                        bytes_recv=int(total_recv),
+-                        bandwidth_mbps=round(total_mbps, 3),
+-                        interface="all",
++                    logger.info(
++                        "Débit serveur échantillonné (%.3f Mbps) ; %d analyste(s) connecté(s) "
++                        "— aucune mesure par utilisateur n'est produite (le serveur ne voit "
++                        "que son propre trafic agrégé).",
++                        total_mbps, len(online),
+                     )
+-                    db.add(sensor)
+ 
+                 db.commit()
+             finally:
+diff --git a/backend/app/interface/api/wazuh.py b/backend/app/interface/api/wazuh.py
+index 0b6b7e1..385075f 100644
+--- a/backend/app/interface/api/wazuh.py
++++ b/backend/app/interface/api/wazuh.py
+@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api/wazuh", tags=["Wazuh Orchestrator"], dependencie
+ 
+ @router.get("/topology")
+ async def get_network_topology():
+-    """ 
+-    Génère la topologie réseau dynamiquement en fonction des agents Wazuh 
++    """
++    Génère la topologie réseau dynamiquement en fonction des agents Wazuh
+     et de leurs sous-réseaux respectifs.
+     """
+     try:
+diff --git a/backend/app/interface/main.py b/backend/app/interface/main.py
+index daf6691..bf64dcb 100644
+--- a/backend/app/interface/main.py
++++ b/backend/app/interface/main.py
+@@ -1,11 +1,12 @@
+ import logging
+ import ssl
++from contextlib import asynccontextmanager
+ 
+ import urllib3
+ from fastapi import Depends, FastAPI
+ from fastapi.middleware.cors import CORSMiddleware
+ 
+-from ..application.bootstrap import run_startup
++from ..application.bootstrap import run_shutdown, run_startup
+ from ..auth import get_api_key_or_jwt, webhook_slug_auth, webhook_token_auth
+ from ..config import settings
+ from ..core import logging_setup  # noqa: F401
+@@ -74,7 +75,23 @@ else:
+ if not SSL_VERIFY:
+     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ 
+-app = FastAPI(title="Sentinel Bridge - SOC Dashboard API")
++@asynccontextmanager
++async def lifespan(app: FastAPI):
++    """Cycle de vie ASGI — remplace `@app.on_event(...)`, déprécié par
++    FastAPI/Starlette (et déjà retiré de Starlette 0.36+).
++
++    Le `finally` garantit que `run_shutdown()` s'exécute même si le démarrage
++    lève : sinon le honeypot et les collecteurs restaient ouverts après un
++    crash partiel du boot.
++    """
++    try:
++        await run_startup()
++    finally:
++        yield
++        await run_shutdown()
++
++
++app = FastAPI(title="Sentinel Bridge - SOC Dashboard API", lifespan=lifespan)
+ logger.info("FastAPI server starting/reloading...")
+ 
+ 
+@@ -91,11 +108,6 @@ app.add_middleware(TenantMiddleware)
+ app.add_middleware(ActionLogMiddleware)
+ 
+ 
+-@app.on_event("startup")
+-async def startup():
+-    await run_startup()
+-
+-
+ # Include routers (order preserved from the original app/main.py)
+ app.include_router(devices.router)
+ app.include_router(analyse.router)
+diff --git a/backend/celerybeat-schedule b/backend/celerybeat-schedule
+deleted file mode 100644
+index c448aefd6e0c6ece2123fe94ee27c5cff5596079..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 12288
+zcmeI1&u`mg7{?tuYuap`qiv<4Yljs9Ytd|F>JK5oVQZ<-l&+&)Dj_&{j`OxQaqZN8
+z-K~|%Rtb#(zQDYHfFt6_kqZZq#)Th8Chf2zhjE1)&uhQ0(<tqd9jCpPoV@n?yidOG
+z=Xsy!b&~5VOEyNzy60~iSeX_|f+z}?6h#mO5l#tCcI2RuXBY5Ju6rG#pzUrA%l`_Z
+z+!W-d{9CU9yq^=`1ULasfD_;ZH~~(86W|0m0ZxDuc)<zObA{27k=*`yY}6g}o^4`s
+ziVLfYmurhk?ehH6qC)N{lSKuNCfZTvm#)n#Ys*(w))tlJYc*wgZE5L3(z|UqAxisM
+z2i%`JFAj{pGm;Z*w}Ea2TMm4;*NqT+$+b?r>leu@`CdOrcn-svFPsqMpXBf5N6_F0
+zC%_4C0-OLR@RAYudVJr_kA15l7yC8}?&KfbP4-AZ*o!BlF&|;*u{~Ec9b~v+OGVqr
+z-%;nRI67`32ijU4890uHubUQXgbrE+PdoAbUZcl9@#=w=`Pcl=)w8QO8f+LCVS5uD
+zY~GI-iiN+2PM;pA6fb=SJ@wFbu<ZtMRM<e+z}SZmjs|x<7uoK*2hES5d4)9L{*WHJ
+zE!%85D83u7#*wsETZpSU(k5qBib`}!0i6pt9%OCsU=^YvqN#x#Y`}F@xO$^j6+VZ-
+zUo4Z?sl9kFj*e}GC<NgHskb=5&=o1RyNv>DZ@|P<m?=;UaA-Cu(b>(|%1`!T6`f1S
+zwY@=f2uFWMPyEH!P)g~{SfzM-Dz;upCU?U+YfXUQ3%Py;zu}{n=L6mibpyG`C%UnZ
+z+(tkpPtR2<L87`(Qz||4t1-WN>bET&0=)S#lU}6KODFr4KGCLw)Vg6d*KNn?1l_|V
+zdg~C%%oD7m10T?6%Ld}#{lH{DgSa(g&8Dkj#C9<PX|8XZR;R)vy0ZAgI7nMEPB$PC
+zaiAx@I@J8~&2y=FJqwKrYutuZS6dKpvIJ<}vxxU+*%ff=Ri|D%w0<cutruy)KNPzH
+z-X?c8@C;w|LR|N5sliQzSZ$i7i}INUk&?uh_|RIO<LEw=E*<_41e!2a7sJA4c{FkA
+zWbHqy?dp$GDz192OWP5NKT2E&s!4pSSp}u}eq?9#YFZ%4SS=Z=hb=vsXImMpw@3FF
+zwZ7I{*+)Uka|5Kde9uHd&=ue`qx-RoCQ^yiqeeY;2Y0-3yl|5Ne4L{I-|YfueQMoK
+z)8ftcLS#Bw9d5Ad!<J&dwlw6K=S*+rxdZIeU!M!?YZ=(?+Md<Po<=O{4CzsI{lWW8
+zTwl3zSbc67wzET7zCAa?X!dEE#hz{v?NXlj%}A21`m3LrSTPAb>_A<iKRkCr?bQB?
+zR6Y}8Q%5fO388T(e@`3T|3E5L@Gd;96zKC>x|wU`{Z*+vqw7$)0@xRI9ZZIp$+1~&
+zPMeOkBHYN!4+Z(5{6zjs{^uoo<m1!j1ULasfD_;ZH~~(86W|0m0ZxDu-~?VQ0wt*|
+g9{8>={8^AnBHk5#KOv2Y^dAl3DX}{61A_3!|F8p@(f|Me
+
+diff --git a/backend/migrations/env.py b/backend/migrations/env.py
+new file mode 100644
+index 0000000..ef0ab45
+--- /dev/null
++++ b/backend/migrations/env.py
+@@ -0,0 +1,72 @@
++"""Environnement Alembic.
++
++Deux points importants :
++
++* la chaîne de connexion vient de `settings.DATABASE_URL` (donc de
++  l'environnement), jamais d'une valeur codée en dur ;
++* `target_metadata` est `Base.metadata`, ce qui rend
++  `alembic revision --autogenerate` réellement utilisable : Alembic compare
++  alors les modèles SQLAlchemy au schéma vivant.
++"""
++from logging.config import fileConfig
++
++from alembic import context
++from sqlalchemy import engine_from_config, pool
++
++from app.core.config import settings
++from app.db import Base
++
++# Importer les modules de modèles pour que leurs tables s'enregistrent sur
++# Base.metadata avant la comparaison autogenerate.
++from app.domain import (
++    investigations,  # noqa: F401
++    models,  # noqa: F401
++)
++
++config = context.config
++if config.config_file_name is not None:
++    fileConfig(config.config_file_name)
++
++# Le driver asynchrone/psycopg éventuel dans DATABASE_URL n'est pas compris par
++# Alembic : on force un DSN sync pg8000/psycopg2 sur la même base.
++_url = settings.DATABASE_URL.replace("+asyncpg", "").replace("+psycopg", "+pg8000")
++config.set_main_option("sqlalchemy.url", _url)
++
++target_metadata = Base.metadata
++
++
++def run_migrations_offline() -> None:
++    """Mode hors-ligne : génère le SQL sans se connecter (`--sql`)."""
++    context.configure(
++        url=_url,
++        target_metadata=target_metadata,
++        literal_binds=True,
++        dialect_opts={"paramstyle": "named"},
++        compare_type=True,
++        compare_server_default=True,
++    )
++    with context.begin_transaction():
++        context.run_migrations()
++
++
++def run_migrations_online() -> None:
++    connectable = engine_from_config(
++        config.get_section(config.config_ini_section, {}),
++        prefix="sqlalchemy.",
++        poolclass=pool.NullPool,
++    )
++    with connectable.connect() as connection:
++        context.configure(
++            connection=connection,
++            target_metadata=target_metadata,
++            compare_type=True,
++            compare_server_default=True,
++        )
++        with context.begin_transaction():
++            context.run_migrations()
++
++
++if context.is_offline_mode():
++    run_migrations_offline()
++else:
++    run_migrations_online()
+diff --git a/backend/migrations/migrate_to_multitenant.py b/backend/migrations/migrate_to_multitenant.py
+index f97928e..90e8a6a 100644
+--- a/backend/migrations/migrate_to_multitenant.py
++++ b/backend/migrations/migrate_to_multitenant.py
+@@ -63,9 +63,9 @@ def migrate():
+ 
+         for model in models:
+             from sqlalchemy import or_
+-            count = db.query(model).filter(or_(model.tenant_id == None, model.tenant_id == "")).count()
++            count = db.query(model).filter(or_(model.tenant_id is None, model.tenant_id == "")).count()
+             if count > 0:
+-                db.query(model).filter(or_(model.tenant_id == None, model.tenant_id == "")).update(
++                db.query(model).filter(or_(model.tenant_id is None, model.tenant_id == "")).update(
+                     {"tenant_id": "default"}, synchronize_session=False
+                 )
+                 print(f"[MIGRATED] {model.__tablename__}: {count} records → tenant_id='default'")
+diff --git a/backend/migrations/script.py.mako b/backend/migrations/script.py.mako
+new file mode 100644
+index 0000000..36cd8ef
+--- /dev/null
++++ b/backend/migrations/script.py.mako
+@@ -0,0 +1,22 @@
++"""${message}
++
++Revision ID: ${up_revision}
++Revises: ${down_revision | comma,n}
++Create Date: ${create_date}
++"""
++from alembic import op
++import sqlalchemy as sa
++${imports if imports else ""}
++
++revision = ${repr(up_revision)}
++down_revision = ${repr(down_revision)}
++branch_labels = ${repr(branch_labels)}
++depends_on = ${repr(depends_on)}
++
++
++def upgrade() -> None:
++    ${upgrades if upgrades else "pass"}
++
++
++def downgrade() -> None:
++    ${downgrades if downgrades else "pass"}
+diff --git a/backend/migrations/versions/.gitkeep b/backend/migrations/versions/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/backend/migrations/versions/0001_baseline.py b/backend/migrations/versions/0001_baseline.py
+new file mode 100644
+index 0000000..972a4d3
+--- /dev/null
++++ b/backend/migrations/versions/0001_baseline.py
+@@ -0,0 +1,39 @@
++"""Baseline du schéma existant.
++
++Révision : 0001
++Créée à partir de : aucun état antérieur
++
++Les déploiements actuels obtiennent leur schéma via `Base.metadata.create_all()`
++au démarrage. Cette révision sert de point d'ancrage :
++
++* sur une base **existante**, ne rien exécuter — faire `alembic stamp head` ;
++* sur une base **neuve**, `alembic upgrade head` recrée exactement ce que
++  `create_all()` produisait.
++
++`upgrade()` délègue volontairement à `Base.metadata.create_all` plutôt que de
++duplicater 46 `op.create_table(...)` à la main : la seconde copie divergerait
++des modèles dès le premier ajout de colonne. À partir d'ici, toute évolution de
++schéma passe par `alembic revision --autogenerate`.
++"""
++from alembic import op
++
++from app.db import Base
++from app.domain import (
++    investigations,  # noqa: F401
++    models,  # noqa: F401
++)
++
++revision = "0001"
++down_revision = None
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    bind = op.get_bind()
++    Base.metadata.create_all(bind=bind)
++
++
++def downgrade() -> None:
++    bind = op.get_bind()
++    Base.metadata.drop_all(bind=bind)
+diff --git a/backend/requirements.txt b/backend/requirements.txt
+index 37d6308..ae907ca 100644
+--- a/backend/requirements.txt
++++ b/backend/requirements.txt
+@@ -1,34 +1,39 @@
+-fastapi>=0.139,<1.0
+-uvicorn>=0.32,<1.0
+-sqlalchemy>=2.0,<3.0
+-pg8000>=1.31,<2.0
+-psutil>=7.0,<8.0
+-pydantic>=2.10,<3.0
+-pydantic-settings>=2.8,<3.0
+-python-dotenv>=1.0,<2.0
+-httpx>=0.28,<1.0
+-python-dateutil>=2.9,<3.0
+-python-multipart>=0.0.20,<1.0
+-celery>=5.6,<6.0
+-redis>=4.5.2,<5.0.0
+-scapy>=2.6,<3.0
+-python-nmap>=0.7,<1.0
+-paramiko>=3.5,<4.0
+-python-jose[cryptography]>=3.5,<4.0
+-passlib>=1.7,<2.0
+-bcrypt>=4.2,<6.0
+-urllib3>=2.3,<3.0
+-opencv-python-headless>=4.8,<5.0
+-# NOTE: insightface declare opencv-python (full GUI) en dependance -> il entre en
+-# collision fichiers avec opencv-python-headless (meme paquet cv2). Apres tout
+-# `pip install -r requirements.txt`, executer :
+-#   pip uninstall -y opencv-python && pip install --force-reinstall opencv-python-headless==4.14.0.94
+-insightface==1.0.1
+-onnxruntime==1.29.0
+-numpy>=2.2,<3.0
+-Pillow>=11.0,<12.0
+-syslog-rfc5424-parser>=0.3.0
+-aiosmtplib>=1.1,<2.0
+-tenacity>=9,<10
+-jinja2>=3.1,<4.0
+-xhtml2pdf>=0.2,<1.0
+\ No newline at end of file
++fastapi>=0.139,<1.0
++uvicorn>=0.32,<1.0
++sqlalchemy>=2.0,<3.0
++pg8000>=1.31,<2.0
++psutil>=7.0,<8.0
++pydantic>=2.10,<3.0
++pydantic-settings>=2.8,<3.0
++python-dotenv>=1.0,<2.0
++httpx>=0.28,<1.0
++python-dateutil>=2.9,<3.0
++python-multipart>=0.0.20,<1.0
++celery>=5.6,<6.0
++redis>=4.5.2,<5.0.0
++scapy>=2.6,<3.0
++python-nmap>=0.7,<1.0
++paramiko>=3.5,<4.0
++python-jose[cryptography]>=3.5,<4.0
++passlib>=1.7,<2.0
++bcrypt>=4.2,<6.0
++urllib3>=2.3,<3.0
++opencv-python-headless>=4.8,<5.0
++# NOTE: insightface declare opencv-python (full GUI) en dependance -> il entre en
++# collision fichiers avec opencv-python-headless (meme paquet cv2). Apres tout
++# `pip install -r requirements.txt`, executer :
++#   pip uninstall -y opencv-python && pip install --force-reinstall opencv-python-headless==4.14.0.94
++insightface==1.0.1
++onnxruntime==1.29.0
++numpy>=2.2,<3.0
++Pillow>=11.0,<12.0
++syslog-rfc5424-parser>=0.3.0
++aiosmtplib>=1.1,<2.0
++tenacity>=9,<10
++jinja2>=3.1,<4.0
++xhtml2pdf>=0.2,<1.0
++
++# Migrations de schéma (voir alembic.ini + migrations/).
++# create_all() ne sait ni ALTER ni DROP : sans Alembic, aucune évolution de
++# schéma n'est reproductible entre l'environnement de dev et la production.
++alembic>=1.13,<2.0
+diff --git a/backend/scripts/test_tenant_isolation.py b/backend/scripts/test_tenant_isolation.py
+index 79aca35..440cd1d 100644
+--- a/backend/scripts/test_tenant_isolation.py
++++ b/backend/scripts/test_tenant_isolation.py
+@@ -100,7 +100,7 @@ def test_isolation():
+             db.query(TenantUser).filter(TenantUser.tenant_id.in_([tenant_a_id, tenant_b_id])).delete()
+             db.query(Tenant).filter(Tenant.id.in_([tenant_a_id, tenant_b_id])).delete()
+             db.commit()
+-        except:
++        except Exception:
+             db.rollback()
+         finally:
+             db.close()
+diff --git a/backend/tests/conftest.py b/backend/tests/conftest.py
+index 317e7cb..7b3ae05 100644
+--- a/backend/tests/conftest.py
++++ b/backend/tests/conftest.py
+@@ -35,12 +35,24 @@ _TEST_DEFAULTS = {
+     "REDIS_URL": "redis://localhost:6379/0",
+     # ── never let a test run believe it is in production ──────────────────
+     "ENVIRONMENT": "test",
+-    # ── keep optional integrations OFF so tests do not hit the network ────
+-    "ENABLE_WAZUH_SOURCE": "False",
+-    "ENABLE_SURICATA_SOURCE": "False",
++    # ── ingestion sources ─────────────────────────────────────────────────
++    # `is_source_enabled()` falls back to these when the tenant has no DB override,
++    # and the shipped defaults are False. With them off, POST /api/suricata/webhook
++    # and POST /api/wazuh/webhook short-circuit to {"status": "ignored"} before
++    # touching the pipeline — which is why test_normalization.py's two webhook tests
++    # could never have passed as written. They only drive the app's own TestClient
++    # (no outbound network), so enabling them is safe and is what those tests assume.
++    "ENABLE_SURICATA_SOURCE": "True",
++    "ENABLE_WAZUH_SOURCE": "True",
++    # The host-agent source is the one that emits ARP/scapy traffic on the local
++    # interfaces and runs a background scanner: keep it OFF in tests.
+     "ENABLE_HOST_AGENT_SOURCE": "False",
++    # Threat intel would call out to AbuseIPDB: keep it OFF in tests.
+     "THREAT_INTEL_ENABLED": "false",
+-    "REGISTRATION_REQUIRES_APPROVAL": "False",
++    # REGISTRATION_REQUIRES_APPROVAL is deliberately NOT overridden: the shipped
++    # default (True) is what test_audit_fixes.py asserts ("Mode approbation admin
++    # par défaut : la demande pending est créée"). Overriding it to False silently
++    # changed /auth/register's response shape and broke that test.
+     # No SUPER_ADMIN_PASSWORD: bootstrap.run_startup() must not seed an account
+     # during tests (it logs a warning instead).
+ }
+diff --git a/backend/tests/test_approval_flows.py b/backend/tests/test_approval_flows.py
+index 8dd1713..11fb395 100644
+--- a/backend/tests/test_approval_flows.py
++++ b/backend/tests/test_approval_flows.py
+@@ -61,7 +61,9 @@ def _no_rate_limit(monkeypatch):
+     """Désactive le rate-limit Redis (register + token) pour chaque test."""
+     from app.interface.api import auth as auth_api
+ 
+-    async def _no_rate_limit(request, max_attempts=5, window_seconds=60):
++    async def _no_rate_limit(request, max_attempts=5, window_seconds=60, **_kwargs):
++        # **_kwargs : check_rate_limit() accepte désormais `username=` (limite par
++        # compte en plus de l'IP). Sans ça, le stub levait TypeError.
+         return None
+ 
+     monkeypatch.setattr(auth_api, "check_rate_limit", _no_rate_limit)
+diff --git a/backend/tests/test_audit_fixes.py b/backend/tests/test_audit_fixes.py
+index 09ce6ee..dee794e 100644
+--- a/backend/tests/test_audit_fixes.py
++++ b/backend/tests/test_audit_fixes.py
+@@ -305,7 +305,9 @@ def test_face_image_requires_auth(client):
+ def test_register_anonymous_uses_default_tenant(client, monkeypatch):
+     # Désactive le rate-limit Redis (persiste entre runs dans la fenêtre 300s)
+     from app.interface.api import auth as auth_api
+-    async def _no_rate_limit(request, max_attempts=5, window_seconds=60):
++    async def _no_rate_limit(request, max_attempts=5, window_seconds=60, **_kwargs):
++        # **_kwargs : check_rate_limit() accepte désormais `username=` (limite par
++        # compte en plus de l'IP). Sans ça, le stub levait TypeError.
+         return None
+     monkeypatch.setattr(auth_api, "check_rate_limit", _no_rate_limit)
+     username = f"anonreg_{uuid.uuid4().hex[:8]}"
+diff --git a/backend/tests/test_multitenancy.py b/backend/tests/test_multitenancy.py
+index 9447f85..1d982a4 100644
+--- a/backend/tests/test_multitenancy.py
++++ b/backend/tests/test_multitenancy.py
+@@ -18,8 +18,8 @@ TEST_DATABASE_URL = "sqlite:///:memory:"
+ def db_session():
+     engine = create_engine(TEST_DATABASE_URL)
+     Base.metadata.create_all(bind=engine)
+-    TestSession = sessionmaker(bind=engine)
+-    session = TestSession()
++    session_factory = sessionmaker(bind=engine)
++    session = session_factory()
+     yield session
+     session.close()
+     Base.metadata.drop_all(bind=engine)
+diff --git a/backend/tests/test_rbac.py b/backend/tests/test_rbac.py
+index c399c0e..fbe84e0 100644
+--- a/backend/tests/test_rbac.py
++++ b/backend/tests/test_rbac.py
+@@ -150,16 +150,33 @@ def test_me_happy(client):
+ # ── 2. /api/auth/me — utilisateur inconnu / token invalide ─────────────
+ 
+ def test_me_missing_user_fallback(client):
+-    """Utilisateur non seedé → fallback JSON store → rôle par défaut analyst."""
++    """Utilisateur non seedé → fallback JSON store → rôle par défaut **le plus bas**.
++
++    Ce test affirmait auparavant `role == "analyst"`, c'est-à-dire qu'il verrouillait
++    un RBAC *fail-open* : tout porteur d'un JWT signé dont le compte était absent de
++    TenantUser obtenait un rôle qui écrit. `resolve_user_role()` retombe maintenant
++    sur "viewer" (fail-closed) — voir core/rbac.py. Le test vérifie donc le comportement
++    sûr, et échouera si quelqu'un réintroduit le défaut permissif.
++    """
+     r = client.get("/api/auth/me", headers=_auth(_token("ghost", role="analyst")))
+     assert r.status_code == 200
+     body = r.json()
+     assert body["username"] == "ghost"
+-    assert body["role"] == "analyst"
++    assert body["role"] == "viewer"          # fail-closed, pas "analyst"
+     assert body["email"] is None
+     assert body["is_active"] is True
+ 
+ 
++def test_missing_user_cannot_write(client):
++    """Corollaire: le fallback viewer doit réellement interdire les écritures."""
++    token = _token("ghost-writer", role="admin")   # le JWT revendique admin
++    r = client.post("/api/rules", headers=_auth(token), json={"name": "x"})
++    assert r.status_code in (401, 403), (
++        "un utilisateur absent de TenantUser ne doit pas pouvoir écrire, "
++        f"même si son JWT revendique un rôle élevé (obtenu {r.status_code})"
++    )
++
++
+ def test_me_garbage_token(client):
+     r = client.get("/api/auth/me", headers=_auth("garbage.token.here"))
+     assert r.status_code == 401
+diff --git a/frontend/src/components/AlertRow.jsx b/frontend/src/components/AlertRow.jsx
+index e04c79d..be03b1e 100644
+--- a/frontend/src/components/AlertRow.jsx
++++ b/frontend/src/components/AlertRow.jsx
+@@ -2,6 +2,7 @@ import { memo } from "react";
+ import { ShieldAlert, Shield, Search, FileSearch } from "lucide-react";
+ import IntelBadge from "./IntelBadge";
+ import { useData } from "../contexts/DataContext";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH } from "../lib/formatters";
+ 
+ const RISK_PILL = {
+   critical: "bg-red-500/10 text-red-400 border border-red-500/20",
+@@ -20,8 +21,10 @@ const AlertRow = memo(({ alert, onInvestigate, t }) => {
+     return investigations.find((it) => String(it.trigger_alert_id) === sid && (it.trigger_alert_type === "alert" || !it.trigger_alert_type) && VISIBLE_INV_STATUSES.includes(it.status)) || null;
+   })();
+   const sev = parseInt(alert.Severity || alert.severity || 0);
+-  const isCritical = sev >= 12;
+-  const isHigh = sev >= 7 && sev < 12;
++  // Seuils partagés (lib/formatters) : « critique » ne veut plus dire >=12 ici
++  // et >=10 ailleurs. isHigh passait de >=7 à >=8 pour s'aligner sur le reste.
++  const isCritical = sev >= SEVERITY_CRITICAL;
++  const isHigh = sev >= SEVERITY_HIGH && sev < SEVERITY_CRITICAL;
+ 
+   const formatTime = (ts) => {
+     if (!ts) return "--:--";
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+index 1cfba0d..85ad2a6 100644
+--- a/frontend/src/index.css
++++ b/frontend/src/index.css
+@@ -1,294 +1,294 @@
+-@import "tailwindcss";
+-
+-@layer base {
+-  :root {
+-    --bg-0: #050a0e;
+-    --bg-1: #0a1018;
+-    --card: rgba(5, 15, 20, 0.65);
+-    --border: rgba(0, 255, 136, 0.08);
+-
+-    --blue: #00ff88;
+-    --cyan: #00e5ff;
+-    --orange: #eab308;
+-    --pink: #ff6b6b;
+-    --green: #00ff88;
+-    --red: #ff6b6b;
+-
+-    --text-1: #c8d6e5;
+-    --text-2: #5a7a8a;
+-  }
+-
+-  * { box-sizing: border-box; }
+-
+-  html, body, #root {
+-    height: 100%;
+-    margin: 0;
+-    background:
+-      radial-gradient(1200px 600px at 20% -10%, rgba(0, 255, 136, 0.06) 0%, transparent 60%),
+-      radial-gradient(800px 400px at 80% 10%, rgba(0, 229, 255, 0.04) 0%, transparent 55%),
+-      linear-gradient(180deg, var(--bg-1), var(--bg-0));
+-    color: var(--text-1);
+-    font-family: 'JetBrains Mono', monospace;
+-  }
+-
+-  .container {
+-    max-width: 1280px;
+-    margin: 0 auto;
+-    padding: 16px;
+-    display: grid;
+-    gap: 16px;
+-  }
+-
+-  .grid-2 {
+-    display: grid;
+-    grid-template-columns: 1fr;
+-    gap: 16px;
+-  }
+-
+-  .card {
+-    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--card);
+-    border: 1px solid var(--border);
+-    border-radius: 16px;
+-    backdrop-filter: blur(10px);
+-    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 20px 40px rgba(0,0,0,.35);
+-    padding: 16px;
+-  }
+-
+-  .card h3 {
+-    margin: 0 0 12px 0;
+-    color: #e0f2f1;
+-    font-weight: 1200;
+-  }
+-
+-  .kpi .value { font-size: 28px; font-weight: 700; }
+-  .kpi .delta.pos { color: var(--green); }
+-  .kpi .delta.neg { color: var(--red); }
+-
+-  .table {
+-    width: 100%;
+-    border-collapse: collapse;
+-  }
+-  .table th, .table td {
+-    border-bottom: 1px solid var(--border);
+-    padding: 8px;
+-    text-align: left;
+-    color: var(--text-2);
+-  }
+-  .table th { color: var(--text-1); }
+-
+-  .badge {
+-    padding: 4px 10px;
+-    border-radius: 999px;
+-    font-weight: 600;
+-    font-size: 12px;
+-  }
+-  .badge.online {
+-    color: #052e16;
+-    background: linear-gradient(180deg, #00ff88, #00cc6a);
+-    box-shadow: 0 0 16px rgba(0, 255, 136, 0.45);
+-  }
+-  .badge.offline {
+-    color: #450a0a;
+-    background: linear-gradient(180deg, #ff8a8a, #ff6b6b);
+-    box-shadow: 0 0 16px rgba(255, 107, 107, .45);
+-  }
+-
+-  /* Focus-visible for accessibility */
+-  button:focus-visible,
+-  a:focus-visible,
+-  input:focus-visible,
+-  select:focus-visible,
+-  textarea:focus-visible {
+-    outline: 2px solid var(--blue);
+-    outline-offset: 2px;
+-  }
+-
+-  /* Responsive: tablet */
+-  @media (max-width: 1024px) {
+-    .grid-2 { grid-template-columns: 1fr; }
+-  }
+-}
+-
+-/* Responsive grids (outside @layer to avoid Tailwind conflicts) */
+-.dashboard-grid {
+-  display: grid;
+-  grid-template-columns: 1fr 1fr;
+-  gap: 20px;
+-}
+-
+-.inventory-stats-grid {
+-  display: grid;
+-  grid-template-columns: repeat(4, 1fr);
+-  gap: 20px;
+-  margin-bottom: 20px;
+-}
+-
+-@keyframes discovery-pulse {
+-  0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
+-  50% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px 10px rgba(0, 255, 136, 0.1); }
+-  100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
+-}
+-
+-@keyframes animate-fade-in {
+-  from { opacity: 0; transform: translateY(8px); }
+-  to { opacity: 1; transform: translateY(0); }
+-}
+-
+-.discovery-pulse {
+-  border-radius: 50%;
+-  animation: discovery-pulse 2s ease-in-out infinite;
+-}
+-
+-.animate-fade-in {
+-  animation: animate-fade-in 0.4s ease-out both;
+-}
+-
+-.tab-pane {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 20px;
+-}
+-
+-/* Sortable table header hover */
+-.custom-table th[style*="cursor"],
+-.custom-table th[onclick] {
+-  transition: color 0.2s, background 0.2s;
+-}
+-.custom-table th[style*="cursor"]:hover {
+-  color: #00ff88;
+-  background: rgba(0, 255, 136, 0.06);
+-}
+-
+-/* Responsive breakpoints */
+-@media (max-width: 1200px) {
+-  .inventory-stats-grid {
+-    grid-template-columns: repeat(2, 1fr);
+-  }
+-}
+-
+-@media (max-width: 768px) {
+-  .dashboard-grid {
+-    grid-template-columns: 1fr;
+-  }
+-  .inventory-stats-grid {
+-    grid-template-columns: 1fr;
+-  }
+-  .container {
+-    padding: 10px;
+-    gap: 10px;
+-  }
+-}
+-
+-@media (max-width: 480px) {
+-  .container {
+-    padding: 8px;
+-    gap: 8px;
+-  }
+-}
+-
+-/* ===== THEMES ===== */
+-[data-theme="soc-dark"] {
+-  --bg-0: #050a0e;
+-  --bg-1: #0a1018;
+-  --card: rgba(5, 15, 20, 0.65);
+-  --border: rgba(0, 255, 136, 0.08);
+-  --blue: #00ff88;
+-  --cyan: #00e5ff;
+-  --green: #00ff88;
+-  --red: #ff6b6b;
+-  --text-1: #c8d6e5;
+-  --text-2: #5a7a8a;
+-  --bg-primary: #050a0e;
+-  --bg-secondary: #0a1018;
+-  --bg-tertiary: #0f1a24;
+-  --glass-bg: rgba(5, 15, 20, 0.65);
+-  --accent-blue: #00ff88;
+-  --accent-cyan: #00e5ff;
+-  --text-main: #c8d6e5;
+-  --text-muted: #5a7a8a;
+-  --success: #00ff88;
+-  --danger: #ff6b6b;
+-  --warning: #eab308;
+-}
+-[data-theme="light"] {
+-  --bg-0: #f1f5f9;
+-  --bg-1: #e2e8f0;
+-  --card: rgba(255, 255, 255, 0.95);
+-  --border: rgba(148, 163, 184, 0.25);
+-  --blue: #0ea5e9;
+-  --cyan: #0284c7;
+-  --green: #059669;
+-  --red: #dc2626;
+-  --orange: #ea580c;
+-  --pink: #be185d;
+-  --text-1: #0f172a;
+-  --text-2: #64748b;
+-  --bg-primary: #f8fafc;
+-  --bg-secondary: #f1f5f9;
+-  --bg-tertiary: #e2e8f0;
+-  --glass-bg: rgba(255, 255, 255, 0.9);
+-  --accent-blue: #0ea5e9;
+-  --accent-cyan: #0284c7;
+-  --accent-purple: #0284c7;
+-  --text-main: #0f172a;
+-  --text-muted: #64748b;
+-  --success: #059669;
+-  --danger: #dc2626;
+-  --warning: #d97706;
+-}
+-[data-theme="light"] html, [data-theme="light"] body, [data-theme="light"] #root {
+-  background: linear-gradient(180deg, var(--bg-1), var(--bg-0)) !important;
+-  color: var(--text-1) !important;
+-}
+-[data-theme="cyber-red"] {
+-  --bg-0: #0f0404;
+-  --bg-1: #1a0a0a;
+-  --card: rgba(30, 10, 10, 0.75);
+-  --border: rgba(239, 68, 68, 0.12);
+-  --blue: #ef4444;
+-  --cyan: #f87171;
+-  --green: #f87171;
+-  --red: #ef4444;
+-  --orange: #fb923c;
+-  --pink: #f43f5e;
+-  --text-1: #fecaca;
+-  --text-2: #7f1d1d;
+-  --bg-primary: #0f0404;
+-  --bg-secondary: #1a0a0a;
+-  --bg-tertiary: #2a0f0f;
+-  --glass-bg: rgba(30, 10, 10, 0.75);
+-  --accent-blue: #ef4444;
+-  --accent-cyan: #f87171;
+-  --accent-purple: #f87171;
+-  --text-main: #fecaca;
+-  --text-muted: #991b1b;
+-  --success: #f87171;
+-  --danger: #ef4444;
+-  --warning: #fb923c;
+-}
+-[data-theme="matrix"] {
+-  --bg-0: #020a02;
+-  --bg-1: #051405;
+-  --card: rgba(5, 25, 10, 0.7);
+-  --border: rgba(0, 255, 65, 0.12);
+-  --blue: #00ff41;
+-  --cyan: #00ff88;
+-  --green: #00ff41;
+-  --red: #ff3b30;
+-  --orange: #eab308;
+-  --pink: #ff6b6b;
+-  --text-1: #dcfce7;
+-  --text-2: #14532d;
+-  --bg-primary: #020a02;
+-  --bg-secondary: #051405;
+-  --bg-tertiary: #0a1f0a;
+-  --glass-bg: rgba(5, 25, 10, 0.7);
+-  --accent-blue: #00ff41;
+-  --accent-cyan: #00ff88;
+-  --accent-purple: #00ff88;
+-  --text-main: #dcfce7;
+-  --text-muted: #166534;
+-  --success: #00ff41;
+-  --danger: #ff3b30;
+-  --warning: #eab308;
++@import "tailwindcss";
++
++@layer base {
++  :root {
++    --bg-0: #050a0e;
++    --bg-1: #0a1018;
++    --card: rgba(5, 15, 20, 0.65);
++    --border: rgba(0, 255, 136, 0.08);
++
++    --focus-ring: #00ff88;
++    --cyan: #00e5ff;
++    --orange: #eab308;
++    --pink: #ff6b6b;
++    --green: #00ff88;
++    --red: #ff6b6b;
++
++    --text-1: #c8d6e5;
++    --text-2: #5a7a8a;
++  }
++
++  * { box-sizing: border-box; }
++
++  html, body, #root {
++    height: 100%;
++    margin: 0;
++    background:
++      radial-gradient(1200px 600px at 20% -10%, rgba(0, 255, 136, 0.06) 0%, transparent 60%),
++      radial-gradient(800px 400px at 80% 10%, rgba(0, 229, 255, 0.04) 0%, transparent 55%),
++      linear-gradient(180deg, var(--bg-1), var(--bg-0));
++    color: var(--text-1);
++    font-family: 'JetBrains Mono', monospace;
++  }
++
++  .container {
++    max-width: 1280px;
++    margin: 0 auto;
++    padding: 16px;
++    display: grid;
++    gap: 16px;
++  }
++
++  .grid-2 {
++    display: grid;
++    grid-template-columns: 1fr;
++    gap: 16px;
++  }
++
++  .card {
++    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01)), var(--card);
++    border: 1px solid var(--border);
++    border-radius: 16px;
++    backdrop-filter: blur(10px);
++    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 20px 40px rgba(0,0,0,.35);
++    padding: 16px;
++  }
++
++  .card h3 {
++    margin: 0 0 12px 0;
++    color: #e0f2f1;
++    font-weight: 1200;
++  }
++
++  .kpi .value { font-size: 28px; font-weight: 700; }
++  .kpi .delta.pos { color: var(--green); }
++  .kpi .delta.neg { color: var(--red); }
++
++  .table {
++    width: 100%;
++    border-collapse: collapse;
++  }
++  .table th, .table td {
++    border-bottom: 1px solid var(--border);
++    padding: 8px;
++    text-align: left;
++    color: var(--text-2);
++  }
++  .table th { color: var(--text-1); }
++
++  .badge {
++    padding: 4px 10px;
++    border-radius: 999px;
++    font-weight: 600;
++    font-size: 12px;
++  }
++  .badge.online {
++    color: #052e16;
++    background: linear-gradient(180deg, #00ff88, #00cc6a);
++    box-shadow: 0 0 16px rgba(0, 255, 136, 0.45);
++  }
++  .badge.offline {
++    color: #450a0a;
++    background: linear-gradient(180deg, #ff8a8a, #ff6b6b);
++    box-shadow: 0 0 16px rgba(255, 107, 107, .45);
++  }
++
++  /* Focus-visible for accessibility */
++  button:focus-visible,
++  a:focus-visible,
++  input:focus-visible,
++  select:focus-visible,
++  textarea:focus-visible {
++    outline: 2px solid var(--focus-ring);
++    outline-offset: 2px;
++  }
++
++  /* Responsive: tablet */
++  @media (max-width: 1024px) {
++    .grid-2 { grid-template-columns: 1fr; }
++  }
++}
++
++/* Responsive grids (outside @layer to avoid Tailwind conflicts) */
++.dashboard-grid {
++  display: grid;
++  grid-template-columns: 1fr 1fr;
++  gap: 20px;
++}
++
++.inventory-stats-grid {
++  display: grid;
++  grid-template-columns: repeat(4, 1fr);
++  gap: 20px;
++  margin-bottom: 20px;
++}
++
++@keyframes discovery-pulse {
++  0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
++  50% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px 10px rgba(0, 255, 136, 0.1); }
++  100% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4); }
++}
++
++@keyframes animate-fade-in {
++  from { opacity: 0; transform: translateY(8px); }
++  to { opacity: 1; transform: translateY(0); }
++}
++
++.discovery-pulse {
++  border-radius: 50%;
++  animation: discovery-pulse 2s ease-in-out infinite;
++}
++
++.animate-fade-in {
++  animation: animate-fade-in 0.4s ease-out both;
++}
++
++.tab-pane {
++  display: flex;
++  flex-direction: column;
++  gap: 20px;
++}
++
++/* Sortable table header hover */
++.custom-table th[style*="cursor"],
++.custom-table th[onclick] {
++  transition: color 0.2s, background 0.2s;
++}
++.custom-table th[style*="cursor"]:hover {
++  color: #00ff88;
++  background: rgba(0, 255, 136, 0.06);
++}
++
++/* Responsive breakpoints */
++@media (max-width: 1200px) {
++  .inventory-stats-grid {
++    grid-template-columns: repeat(2, 1fr);
++  }
++}
++
++@media (max-width: 768px) {
++  .dashboard-grid {
++    grid-template-columns: 1fr;
++  }
++  .inventory-stats-grid {
++    grid-template-columns: 1fr;
++  }
++  .container {
++    padding: 10px;
++    gap: 10px;
++  }
++}
++
++@media (max-width: 480px) {
++  .container {
++    padding: 8px;
++    gap: 8px;
++  }
++}
++
++/* ===== THEMES ===== */
++[data-theme="soc-dark"] {
++  --bg-0: #050a0e;
++  --bg-1: #0a1018;
++  --card: rgba(5, 15, 20, 0.65);
++  --border: rgba(0, 255, 136, 0.08);
++  --focus-ring: #00ff88;
++  --cyan: #00e5ff;
++  --green: #00ff88;
++  --red: #ff6b6b;
++  --text-1: #c8d6e5;
++  --text-2: #5a7a8a;
++  --bg-primary: #050a0e;
++  --bg-secondary: #0a1018;
++  --bg-tertiary: #0f1a24;
++  --glass-bg: rgba(5, 15, 20, 0.65);
++  --accent-blue: #00ff88;
++  --accent-cyan: #00e5ff;
++  --text-main: #c8d6e5;
++  --text-muted: #5a7a8a;
++  --success: #00ff88;
++  --danger: #ff6b6b;
++  --warning: #eab308;
++}
++[data-theme="light"] {
++  --bg-0: #f1f5f9;
++  --bg-1: #e2e8f0;
++  --card: rgba(255, 255, 255, 0.95);
++  --border: rgba(148, 163, 184, 0.25);
++  --focus-ring: #0ea5e9;
++  --cyan: #0284c7;
++  --green: #059669;
++  --red: #dc2626;
++  --orange: #ea580c;
++  --pink: #be185d;
++  --text-1: #0f172a;
++  --text-2: #64748b;
++  --bg-primary: #f8fafc;
++  --bg-secondary: #f1f5f9;
++  --bg-tertiary: #e2e8f0;
++  --glass-bg: rgba(255, 255, 255, 0.9);
++  --accent-blue: #0ea5e9;
++  --accent-cyan: #0284c7;
++  --accent-purple: #0284c7;
++  --text-main: #0f172a;
++  --text-muted: #64748b;
++  --success: #059669;
++  --danger: #dc2626;
++  --warning: #d97706;
++}
++[data-theme="light"] html, [data-theme="light"] body, [data-theme="light"] #root {
++  background: linear-gradient(180deg, var(--bg-1), var(--bg-0)) !important;
++  color: var(--text-1) !important;
++}
++[data-theme="cyber-red"] {
++  --bg-0: #0f0404;
++  --bg-1: #1a0a0a;
++  --card: rgba(30, 10, 10, 0.75);
++  --border: rgba(239, 68, 68, 0.12);
++  --focus-ring: #ef4444;
++  --cyan: #f87171;
++  --green: #f87171;
++  --red: #ef4444;
++  --orange: #fb923c;
++  --pink: #f43f5e;
++  --text-1: #fecaca;
++  --text-2: #7f1d1d;
++  --bg-primary: #0f0404;
++  --bg-secondary: #1a0a0a;
++  --bg-tertiary: #2a0f0f;
++  --glass-bg: rgba(30, 10, 10, 0.75);
++  --accent-blue: #ef4444;
++  --accent-cyan: #f87171;
++  --accent-purple: #f87171;
++  --text-main: #fecaca;
++  --text-muted: #991b1b;
++  --success: #f87171;
++  --danger: #ef4444;
++  --warning: #fb923c;
++}
++[data-theme="matrix"] {
++  --bg-0: #020a02;
++  --bg-1: #051405;
++  --card: rgba(5, 25, 10, 0.7);
++  --border: rgba(0, 255, 65, 0.12);
++  --focus-ring: #00ff41;
++  --cyan: #00ff88;
++  --green: #00ff41;
++  --red: #ff3b30;
++  --orange: #eab308;
++  --pink: #ff6b6b;
++  --text-1: #dcfce7;
++  --text-2: #14532d;
++  --bg-primary: #020a02;
++  --bg-secondary: #051405;
++  --bg-tertiary: #0a1f0a;
++  --glass-bg: rgba(5, 25, 10, 0.7);
++  --accent-blue: #00ff41;
++  --accent-cyan: #00ff88;
++  --accent-purple: #00ff88;
++  --text-main: #dcfce7;
++  --text-muted: #166534;
++  --success: #00ff41;
++  --danger: #ff3b30;
++  --warning: #eab308;
+ }
+\ No newline at end of file
+diff --git a/frontend/src/pages/CasesPage.jsx b/frontend/src/pages/CasesPage.jsx
+index fba605c..ece9db0 100644
+--- a/frontend/src/pages/CasesPage.jsx
++++ b/frontend/src/pages/CasesPage.jsx
+@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
+ import { useData } from "../contexts/DataContext";
+ import { toast } from "react-toastify";
+ import Timeline from "../components/Timeline";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM } from "../lib/formatters";
+ 
+ const CASE_STATUSES = ["open", "in_progress", "resolved", "closed"];
+ const LINK_STATUSES = ["open", "in_progress", "resolved", "dismissed"];
+@@ -20,7 +21,8 @@ const STATUS_LABEL = {
+ const emptyForm = () => ({ title: "", description: "", severity: 8, assignee: "" });
+ 
+ const sevClass = (s) =>
+-  s >= 12 ? "text-red-400" : s >= 8 ? "text-orange-400" : s >= 5 ? "text-yellow-400" : "text-gray-400";
++  s >= SEVERITY_CRITICAL ? "text-red-400" : s >= SEVERITY_HIGH ? "text-orange-400"
++    : s >= SEVERITY_MEDIUM ? "text-yellow-400" : "text-gray-400";
+ 
+ const pillClass = (status) => {
+   switch (status) {
+diff --git a/frontend/src/pages/DashboardPage.jsx b/frontend/src/pages/DashboardPage.jsx
+index d99266c..5d2d2d4 100644
+--- a/frontend/src/pages/DashboardPage.jsx
++++ b/frontend/src/pages/DashboardPage.jsx
+@@ -2,7 +2,7 @@ import { ShieldAlert, Activity, Zap, FileSearch, BrainCircuit, RefreshCw, AlertC
+ import { AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
+ import { useData } from "../contexts/DataContext";
+ import { useTranslation } from "../i18n";
+-import { getHourlyAlertsData } from "../lib/formatters";
++import { SEVERITY_HIGH, getHourlyAlertsData, severityOf } from "../lib/formatters";
+ import { useAuth } from "../contexts/AuthContext";
+ import { useState, useEffect, useCallback } from "react";
+ import { useNavigate } from "react-router-dom";
+@@ -75,7 +75,7 @@ export default function DashboardPage() {
+             <Activity size={20} />
+           </div>
+           <div className="stat-info">
+-            <span className="stat-value">{wazuhAlerts.filter((a) => a.Severity >= 8).length}</span>
++            <span className="stat-value">{wazuhAlerts.filter((a) => severityOf(a) >= SEVERITY_HIGH).length}</span>
+             <span className="stat-label">{t("critical_alerts")}</span>
+           </div>
+         </div>
+diff --git a/frontend/src/pages/HostAgentsPage.jsx b/frontend/src/pages/HostAgentsPage.jsx
+index 8b7ef24..4afe33c 100644
+--- a/frontend/src/pages/HostAgentsPage.jsx
++++ b/frontend/src/pages/HostAgentsPage.jsx
+@@ -21,6 +21,7 @@ import {
+ } from "lucide-react";
+ import { useAuth } from "../contexts/AuthContext";
+ import { toast } from "react-toastify";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH } from "../lib/formatters";
+ 
+ const ACTION_TYPES = [
+   { value: "block_ip", label: "Bloquer IP", hint: "Ex : 192.168.1.50" },
+@@ -78,8 +79,8 @@ function severityBadge(sev) {
+   // numeric severity
+   const num = parseInt(sev, 10);
+   if (!isNaN(num)) {
+-    if (num >= 8 || s === "critical" || s === "high") {
+-      return { label: s === "critical" || num >= 12 ? "Critique" : "Élevée", cls: "bg-red-500/10 text-red-400 border-red-500/20" };
++    if (num >= SEVERITY_HIGH || s === "critical" || s === "high") {
++      return { label: s === "critical" || num >= SEVERITY_CRITICAL ? "Critique" : "Élevée", cls: "bg-red-500/10 text-red-400 border-red-500/20" };
+     }
+     if (num >= 4) return { label: "Moyenne", cls: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+     return { label: "Faible", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+@@ -104,8 +105,8 @@ function severityRank(sev) {
+   const s = String(sev || "").toLowerCase();
+   const n = parseInt(sev, 10);
+   if (!isNaN(n)) {
+-    if (n >= 12 || s === "critical") return 0;
+-    if (n >= 8 || s === "high") return 0;
++    if (n >= SEVERITY_CRITICAL || s === "critical") return 0;
++    if (n >= SEVERITY_HIGH || s === "high") return 0;
+     if (n >= 4 || s === "medium") return 1;
+     return 2;
+   }
+diff --git a/frontend/src/pages/HuntingPage.jsx b/frontend/src/pages/HuntingPage.jsx
+index e6108a1..8ab3dd5 100644
+--- a/frontend/src/pages/HuntingPage.jsx
++++ b/frontend/src/pages/HuntingPage.jsx
+@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit, Crosshair, X, Save, Play, FlaskConical, Download, S
+ import { useAuth } from "../contexts/AuthContext";
+ import { useData } from "../contexts/DataContext";
+ import { toast } from "react-toastify";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM } from "../lib/formatters";
+ 
+ const OPS = [
+   { value: "eq", label: "est égal à" },
+@@ -46,7 +47,8 @@ const emptyForm = () => ({
+ });
+ 
+ const sevClass = (s) =>
+-  s >= 12 ? "text-red-400" : s >= 8 ? "text-orange-400" : s >= 5 ? "text-yellow-400" : "text-gray-400";
++  s >= SEVERITY_CRITICAL ? "text-red-400" : s >= SEVERITY_HIGH ? "text-orange-400"
++    : s >= SEVERITY_MEDIUM ? "text-yellow-400" : "text-gray-400";
+ 
+ export default function HuntingPage() {
+   const { fetchWithAuth } = useAuth();
+diff --git a/frontend/src/pages/RulesPage.jsx b/frontend/src/pages/RulesPage.jsx
+index 7ff2162..d26532f 100644
+--- a/frontend/src/pages/RulesPage.jsx
++++ b/frontend/src/pages/RulesPage.jsx
+@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
+ import { useData } from "../contexts/DataContext";
+ import { useTranslation } from "../i18n";
+ import { toast } from "react-toastify";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM } from "../lib/formatters";
+ 
+ const OPS = [
+   { value: "eq", label: "est égal à" },
+@@ -176,7 +177,8 @@ export default function RulesPage() {
+   };
+ 
+   const sevClass = (s) =>
+-    s >= 12 ? "text-red-400" : s >= 8 ? "text-orange-400" : s >= 5 ? "text-yellow-400" : "text-gray-400";
++    s >= SEVERITY_CRITICAL ? "text-red-400" : s >= SEVERITY_HIGH ? "text-orange-400"
++    : s >= SEVERITY_MEDIUM ? "text-yellow-400" : "text-gray-400";
+ 
+   return (
+     <div className="p-6 space-y-6">
+diff --git a/frontend/src/pages/SuricataPage.jsx b/frontend/src/pages/SuricataPage.jsx
+index 7ff0864..204b75a 100644
+--- a/frontend/src/pages/SuricataPage.jsx
++++ b/frontend/src/pages/SuricataPage.jsx
+@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
+ import { Activity, ShieldAlert, Settings, Lock } from "lucide-react";
+ import { useData } from "../contexts/DataContext";
+ import { useAuth } from "../contexts/AuthContext";
+-import { formatSuricataDetails } from "../lib/formatters";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM, formatSuricataDetails } from "../lib/formatters";
+ import SourceConfigWizard from "../components/SourceConfigWizard";
+ 
+ export default function SuricataPage() {
+@@ -172,9 +172,11 @@ export default function SuricataPage() {
+                   {typeAlerts.length > 0 ? (
+                     typeAlerts.map((a, i) => {
+                       const sev = parseInt(a.severity || 0);
+-                      const isCritical = isAlert && sev >= 12;
+-                      const isHigh = isAlert && sev >= 7 && sev < 12;
+-                      const isMedium = isAlert && sev >= 3 && sev < 7;
++                      // Seuils partagés ; isMedium remontait de >=3 à >=4
++                      // (SEVERITY_MEDIUM) pour coller au reste de l'app.
++                      const isCritical = isAlert && sev >= SEVERITY_CRITICAL;
++                      const isHigh = isAlert && sev >= SEVERITY_HIGH && sev < SEVERITY_CRITICAL;
++                      const isMedium = isAlert && sev >= SEVERITY_MEDIUM && sev < SEVERITY_HIGH;
+                       const isLow = isAlert && sev > 0 && sev < 3;
+                       const rowClass = isCritical ? "suricata-row-critical" : isHigh ? "suricata-row-high" : isMedium ? "suricata-row-medium" : isLow ? "suricata-row-low" : "suricata-row";
+                       const sevClass = isCritical ? "suricata-sev-critical" : isHigh ? "suricata-sev-high" : isMedium ? "suricata-sev-medium" : isLow ? "suricata-sev-low" : "suricata-sev-info";
+diff --git a/frontend/src/pages/TerminalAlertsPage.jsx b/frontend/src/pages/TerminalAlertsPage.jsx
+index e723459..43133b6 100644
+--- a/frontend/src/pages/TerminalAlertsPage.jsx
++++ b/frontend/src/pages/TerminalAlertsPage.jsx
+@@ -6,6 +6,7 @@ import { useTranslation } from "../i18n";
+ import AlertRow from "../components/AlertRow";
+ import InvestigationModal from "./InvestigationModal";
+ import AlertHistoryModal from "./AlertHistoryModal";
++import { SEVERITY_CRITICAL, SEVERITY_HIGH, SEVERITY_MEDIUM } from "../lib/formatters";
+ 
+ export default function TerminalAlertsPage() {
+   const { fetchWithAuth, headers } = useAuth();
+@@ -43,9 +44,9 @@ export default function TerminalAlertsPage() {
+     const now = new Date().getTime();
+ 
+     let passSeverity = true;
+-    if (alertFilterSeverity === "12") passSeverity = sev >= 12;
+-    else if (alertFilterSeverity === "8") passSeverity = sev >= 8 && sev < 12;
+-    else if (alertFilterSeverity === "4") passSeverity = sev >= 4 && sev < 8;
++    if (alertFilterSeverity === String(SEVERITY_CRITICAL)) passSeverity = sev >= SEVERITY_CRITICAL;
++    else if (alertFilterSeverity === String(SEVERITY_HIGH)) passSeverity = sev >= SEVERITY_HIGH && sev < SEVERITY_CRITICAL;
++    else if (alertFilterSeverity === String(SEVERITY_MEDIUM)) passSeverity = sev >= SEVERITY_MEDIUM && sev < SEVERITY_HIGH;
+     else if (alertFilterSeverity === "0") passSeverity = sev >= 0 && sev < 4;
+ 
+     let passTime = true;

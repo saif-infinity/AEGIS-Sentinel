@@ -1,0 +1,37 @@
+AEGIS Sentinel — SIEM / XDR for SOCs
+Copyright (C) 2026 the AEGIS Sentinel authors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY TRADEMARKS AND BRAND ASSETS
+--------------------------------------------------------------------------------
+
+`frontend/public/logos/` contains logo artwork for the following vendors:
+Cisco, Dell, Fortinet, HPE, Huawei, Juniper, MikroTik, Palo Alto Networks,
+Sophos, TP-Link, Ubiquiti and WatchGuard.
+
+Each of those names and logos is a trademark or registered trademark of its
+respective owner. They are used here **nominatively**, solely to identify the
+equipment vendor in the network-inventory screens, and are NOT an endorsement
+by, affiliation with, or sponsorship from any of those companies.
+
+Before redistributing this repository you must satisfy each vendor's brand
+guidelines. Most of them permit nominative use of an unmodified logo at a
+reasonable size; some (notably Cisco, Fortinet and Palo Alto Networks) require
+written permission or restrict recolouring and resizing. If you cannot satisfy
+a given vendor's terms, remove that vendor's logo from `frontend/public/logos/`
+and drop the corresponding entry from the `VENDOR_LOGOS` map in
+`frontend/src/pages/NetworkDevicesPage.jsx` — the page falls back to a generic
+icon for vendors without artwork.
+
+--------------------------------------------------------------------------------
+OTHER THIRD-PARTY COMPONENTS
+--------------------------------------------------------------------------------
+
+Python and JavaScript dependencies are declared in `backend/requirements.txt`,
+`frontend/package.json` and `admin-frontend/package.json`. Each is distributed
+under its own licence; review them before redistributing a bundle.

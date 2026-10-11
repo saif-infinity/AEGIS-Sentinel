@@ -1,0 +1,2616 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 1616ea6..f2df898 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -1,10 +1,17 @@
+ name: Sentinel SOC CI/CD
+ 
++# FIX: the repo's only branch is `master`, so the previous `branches: [main, develop]`
++# trigger meant this workflow NEVER ran (verified: actions/runs total_count = 0 since
++# the repo was created). Everything it claimed to gate was therefore unverified —
++# including a frontend that cannot compile.
+ on:
+   push:
+-    branches: [main, develop]
++    branches: [master, main, develop]
+   pull_request:
+-    branches: [main]
++
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: true
+ 
+ env:
+   PYTHON_VERSION: "3.13"
+@@ -23,13 +30,17 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: ${{ env.PYTHON_VERSION }}
+-      - run: pip install -r requirements.txt ruff
+-      # insightface tire opencv-python (GUI) -> collision fichiers avec headless
+-      - run: pip uninstall -y opencv-python && pip install --force-reinstall --no-deps opencv-python-headless==4.14.0.94
++      # FIX: linting does not need the runtime deps (insightface/onnxruntime/opencv),
++      # and ruff.toml ignored `W503`, a flake8 code ruff does not know — ruff aborted
++      # with "Unknown rule selector" before reading a single file.
++      - run: pip install ruff
+       - run: ruff check .
+ 
+-  lint-frontend:
+-    name: Lint Frontend
++  # FIX: there was no eslint config and no eslint dependency, so
++  # `npx eslint src --ext .jsx,.js` could only fail. A production build is the gate
++  # that actually catches the class of bug that shipped (missing modules).
++  build-frontend:
++    name: Build Frontend
+     runs-on: ubuntu-latest
+     defaults:
+       run:
+@@ -42,15 +53,34 @@ jobs:
+           cache: npm
+           cache-dependency-path: frontend/package-lock.json
+       - run: npm ci
+-      - run: npx eslint src --ext .jsx,.js
++      - run: npm run build
++      - uses: actions/upload-artifact@v4
++        with:
++          name: frontend-dist
++          path: frontend/dist/
++
++  build-admin-frontend:
++    name: Build Admin Frontend
++    runs-on: ubuntu-latest
++    defaults:
++      run:
++        working-directory: admin-frontend
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: ${{ env.NODE_VERSION }}
++          cache: npm
++          cache-dependency-path: admin-frontend/package-lock.json
++      - run: npm ci
++      - run: npm run build
+ 
+   test-backend:
+     name: Test Backend
+     runs-on: ubuntu-latest
+-    needs: lint-backend
+     services:
+       postgres:
+-        image: postgres:16
++        image: timescale/timescaledb:2.29.1-pg16
+         env:
+           POSTGRES_USER: postgres
+           POSTGRES_PASSWORD: test-password-ci-only
+@@ -65,10 +95,21 @@ jobs:
+         image: redis:7
+         ports: ["6379:6379"]
+     env:
+-      DATABASE_URL: postgresql://postgres:test-password-ci-only@localhost:5432/postgres_test
++      # FIX: Settings declares 8 required SecretStr fields. CI supplied 4 and there
++      # was no conftest.py, so every test module failed at collection with a
++      # pydantic ValidationError. tests/conftest.py now provides throwaway defaults
++      # (env values win), and the real DSNs come from here.
++      DATABASE_URL: postgresql+pg8000://postgres:test-password-ci-only@localhost:5432/postgres_test
+       REDIS_URL: redis://localhost:6379/0
+       JWT_SECRET_KEY: ci-test-only-not-for-production-use-32chars!
+       API_KEY: ci-test-only-api-key-not-for-production
++      ADMIN_API_KEY: ci-test-only-admin-key
++      ADMIN_JWT_SECRET: ci-test-only-admin-jwt-secret
++      WAZUH_PASS: ci-test-only
++      WAZUH_INDEXER_PASS: ci-test-only
++      SURICATA_PASS: ci-test-only
++      WAZUH_SSH_PASS: ci-test-only
++      ENVIRONMENT: test
+     defaults:
+       run:
+         working-directory: backend
+@@ -77,6 +118,8 @@ jobs:
+       - uses: actions/setup-python@v5
+         with:
+           python-version: ${{ env.PYTHON_VERSION }}
++          cache: pip
++          cache-dependency-path: backend/requirements.txt
+       - run: pip install -r requirements.txt pytest
+       # insightface tire opencv-python (GUI) -> collision fichiers avec headless
+       - run: pip uninstall -y opencv-python && pip install --force-reinstall --no-deps opencv-python-headless==4.14.0.94
+@@ -89,6 +132,7 @@ jobs:
+     steps:
+       - uses: actions/checkout@v4
+       - uses: docker/setup-buildx-action@v3
++      # FIX: this job failed instantly — `context: ./backend` had no Dockerfile.
+       - uses: docker/build-push-action@v5
+         with:
+           context: ./backend
+@@ -97,37 +141,43 @@ jobs:
+           cache-from: type=gha
+           cache-to: type=gha,mode=max
+ 
+-  build-frontend:
+-    name: Build Frontend
++  compose-config:
++    name: Validate Compose
+     runs-on: ubuntu-latest
+-    needs: lint-frontend
+-    defaults:
+-      run:
+-        working-directory: frontend
+     steps:
+       - uses: actions/checkout@v4
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version: ${{ env.NODE_VERSION }}
+-          cache: npm
+-          cache-dependency-path: frontend/package-lock.json
+-      - run: npm ci
+-      - run: npm run build
+-      - uses: actions/upload-artifact@v4
+-        with:
+-          name: frontend-dist
+-          path: frontend/dist/
++      # FIX: docker-compose.yml defined only `redis` while declaring an orphan
++      # `pgdata:` volume, and docker-compose.prod.yml builds `./wazuh`, a directory
++      # that does not exist in the repo.
++      - run: docker compose -f docker-compose.yml config -q
++      - run: docker compose -f docker-compose.prod.yml config -q
++        env:
++          POSTGRES_PASSWORD: x
++          REDIS_PASSWORD: x
+ 
+   deploy:
+     name: Deploy Production
+     runs-on: ubuntu-latest
+-    needs: [build-backend, build-frontend]
+-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
++    needs: [build-backend, build-frontend, build-admin-frontend]
++    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+     environment: production
+     steps:
+       - uses: actions/checkout@v4
++      # FIX: this step used to `echo` the deploy commands instead of running them —
++      # a green "Deploy Production" check that deployed nothing. It now fails loudly
++      # until real SSH credentials are wired as repository secrets.
+       - name: Deploy to server
++        env:
++          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
++          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
++          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+         run: |
+-          echo "Deploy production deployment step"
+-          echo "docker compose -f docker-compose.prod.yml pull"
+-          echo "docker compose -f docker-compose.prod.yml up -d --remove-orphans"
++          set -euo pipefail
++          if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_SSH_KEY:-}" ]; then
++            echo "::error::DEPLOY_HOST / DEPLOY_SSH_KEY secrets are not configured."
++            echo "Either add them, or delete this job — do not ship a deploy step that only echoes."
++            exit 1
++          fi
++          mkdir -p ~/.ssh && printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
++          ssh -o StrictHostKeyChecking=accept-new "${DEPLOY_USER:-deploy}@${DEPLOY_HOST}" \
++            'cd /opt/sentinel && git pull --ff-only && docker compose -f docker-compose.prod.yml up -d --build --remove-orphans'
+diff --git a/.gitignore b/.gitignore
+index 69663b2..9bceb59 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -23,8 +23,6 @@ dist/
+ downloads/
+ eggs/
+ .eggs/
+-lib/
+-lib64/
+ parts/
+ sdist/
+ var/
+@@ -74,4 +72,9 @@ Thumbs.db
+ backend/app/face_data/
+ 
+ # Deepwork / local tooling state
+-.slim/
+\ No newline at end of file
++.slim/
++
++# Build/run artifacts that must never be committed
++celerybeat-schedule
++*.pid
++.ruff_cache/
+diff --git a/Makefile b/Makefile
+index 6b618df..72b8285 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,75 +1,94 @@
+-.PHONY: install install-backend install-frontend dev dev-backend dev-frontend dev-worker dev-wazuh dev-ollama clean lint prod prod-down build help
+-
+-WAZUH_DIR = $(USERPROFILE)\OneDrive\Desktop\wazuh version(4.7.2)-pfe\wazuh-docker\single-node
+-OLLAMA     = $(LOCALAPPDATA)\Programs\Ollama\ollama.exe
+-
+-help:
+-	@echo "Usage:"
+-	@echo "  make install          Install all dependencies (backend + frontend)"
+-	@echo "  make install-backend  Install Python dependencies"
+-	@echo "  make install-frontend Install Node.js dependencies"
+-	@echo "  make dev              Run all services (backend + frontend + worker)"
+-	@echo "  make dev-backend      Run FastAPI backend (uvicorn)"
+-	@echo "  make dev-frontend     Run Vite frontend dev server"
+-	@echo "  make dev-worker       Run Celery worker"
+-	@echo "  make dev-wazuh        Start Wazuh single-node (docker-compose)"
+-	@echo "  make dev-ollama       Start Ollama server"
+-	@echo "  make build            Build frontend for production"
+-	@echo "  make prod             Start all services in production"
+-	@echo "  make prod-down        Stop all production services"
+-	@echo "  make clean            Remove venv, node_modules, caches"
+-	@echo "  make lint             Run linters (ruff, eslint)"
+-
+-install: install-backend install-frontend
+-
+-install-backend:
+-	cd backend && python -m venv venv && .\venv\Scripts\pip install -r requirements.txt
+-	# insightface tire opencv-python (GUI) -> entre en collision fichiers avec headless.
+-	./backend/venv/Scripts/pip uninstall -y opencv-python && ./backend/venv/Scripts/pip install --force-reinstall --no-deps opencv-python-headless==4.14.0.94
+-
+-install-frontend:
+-	cd frontend && npm install
+-
+-dev:
+-	@echo "Starting all services..."
+-	start "ollama" cmd /c "$(OLLAMA) serve"
+-	start "wazuh" cmd /c "cd /d $(WAZUH_DIR) && docker-compose up -d"
+-	start "backend" cmd /c "cd /d $(CURDIR)\backend & .\venv\Scripts\uvicorn app.main:app --reload --host 127.0.0.1 --port 8001"
+-	start "worker" cmd /c "cd /d $(CURDIR)\backend & .\venv\Scripts\celery -A app.worker.celery_app worker --loglevel=info --pool=solo -B"
+-	start "frontend" cmd /c "cd /d $(CURDIR)\frontend & npm run dev"
+-
+-dev-backend:
+-	cd backend && .\venv\Scripts\uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
+-
+-dev-frontend:
++# Sentinel Bridge — developer tasks.
++#
++# FIX: the previous Makefile was Windows-only and machine-specific — it hardcoded
++#   WAZUH_DIR = $(USERPROFILE)\OneDrive\Desktop\wazuh version(4.7.2)-pfe\wazuh-docker\single-node
++#   OLLAMA    = $(LOCALAPPDATA)\Programs\Ollama\ollama.exe
++# and used `start`, `cmd /c`, `.\venv\Scripts\…` and `rmdir /s /q`. On Linux/macOS
++# every target failed, and the Wazuh path only existed on one laptop.
++# Everything below is POSIX; Windows users keep start.bat (which is fine as-is).
++
++SHELL        := /bin/bash
++VENV         := backend/venv
++PIP          := $(VENV)/bin/pip
++PYTHON       := $(VENV)/bin/python
++UVICORN      := $(VENV)/bin/uvicorn
++CELERY       := $(VENV)/bin/celery
++COMPOSE      := docker compose
++
++.DEFAULT_GOAL := help
++
++.PHONY: help install install-backend install-frontend install-admin-frontend \
++        infra infra-down dev dev-backend dev-worker dev-frontend dev-admin \
++        test lint lint-backend lint-frontend format build clean
++
++help: ## Show this help
++	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
++		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
++
++# ── Install ────────────────────────────────────────────────────────────
++install: install-backend install-frontend install-admin-frontend ## Install everything
++
++install-backend: ## Python venv + deps (+ the opencv headless fix)
++	cd backend && python3 -m venv venv
++	$(PIP) install -r backend/requirements.txt
++	# insightface pulls the GUI opencv build, which collides with the headless one
++	$(PIP) uninstall -y opencv-python || true
++	$(PIP) install --force-reinstall --no-deps opencv-python-headless==4.14.0.94
++	$(PIP) install pytest ruff
++
++install-frontend: ## SOC frontend deps
++	cd frontend && npm ci
++
++install-admin-frontend: ## Admin console deps
++	cd admin-frontend && npm ci
++
++# ── Local infrastructure ───────────────────────────────────────────────
++infra: ## Start PostgreSQL (TimescaleDB) + Redis for development
++	$(COMPOSE) up -d
++
++infra-down: ## Stop local infrastructure
++	$(COMPOSE) down
++
++# ── Run ────────────────────────────────────────────────────────────────
++dev: ## Run infra + backend + worker + both frontends (Ctrl-C stops everything)
++	@$(MAKE) infra
++	@trap '$(COMPOSE) stop' INT TERM; \
++		$(MAKE) -j4 dev-backend dev-worker dev-frontend dev-admin
++
++dev-backend: ## FastAPI on 127.0.0.1:8001
++	cd backend && ../$(UVICORN) app.main:app --reload --host 127.0.0.1 --port 8001 --proxy-headers
++
++dev-worker: ## Celery worker + beat
++	cd backend && ../$(CELERY) -A app.worker.celery_app worker --loglevel=info --pool=solo -B
++
++dev-frontend: ## Vite dev server (SOC frontend)
+ 	cd frontend && npm run dev
+ 
+-dev-worker:
+-	cd backend && .\venv\Scripts\celery -A app.worker.celery_app worker --loglevel=info --pool=solo -B
++dev-admin: ## Vite dev server (admin console)
++	cd admin-frontend && npm run dev
+ 
+-dev-wazuh:
+-	cd "$(WAZUH_DIR)" && docker-compose up -d
++# ── Quality gates (the same ones CI runs) ──────────────────────────────
++test: ## Backend test suite (tests/conftest.py provides the required env)
++	cd backend && ../$(PYTHON) -m pytest --tb=short -q
+ 
+-dev-ollama:
+-	"$(OLLAMA)" serve
++lint: lint-backend lint-frontend ## Everything CI checks
+ 
+-build:
+-	cd frontend && npm run build
++lint-backend: ## ruff over the backend
++	cd backend && ../$(VENV)/bin/ruff check .
+ 
+-prod:
+-	docker compose -f docker-compose.prod.yml up -d --build
++lint-frontend: ## Production build of BOTH frontends (catches unresolvable imports)
++	cd frontend && npm run build
++	cd admin-frontend && npm run build
+ 
+-prod-down:
+-	docker compose -f docker-compose.prod.yml down
++format: ## ruff --fix (safe fixes only)
++	cd backend && ../$(VENV)/bin/ruff check . --fix
+ 
+-clean:
+-	rmdir /s /q backend\venv 2>nul || true
+-	rmdir /s /q frontend\node_modules 2>nul || true
+-	rmdir /s /q __pycache__ 2>nul || true
+-	rmdir /s /q backend\__pycache__ 2>nul || true
+-	rmdir /s /q backend\app\__pycache__ 2>nul || true
+-	rmdir /s /q .pytest_cache 2>nul || true
++build: ## Build both frontends into dist/
++	cd frontend && npm run build
++	cd admin-frontend && npm run build
+ 
+-lint:
+-	cd backend && .\venv\Scripts\ruff check . || true
+-	cd frontend && npx eslint src --ext .jsx,.js 2>nul || true
++clean: ## Remove venv, node_modules and caches
++	rm -rf backend/venv backend/.ruff_cache backend/.pytest_cache
++	rm -rf frontend/node_modules frontend/dist
++	rm -rf admin-frontend/node_modules admin-frontend/dist
++	find . -type d -name __pycache__ -not -path "*/node_modules/*" -prune -exec rm -rf {} +
+diff --git a/README.md b/README.md
+index c6bedad..fed700b 100644
+--- a/README.md
++++ b/README.md
+@@ -26,6 +26,55 @@
+ 
+ ---
+ 
++## ✅ Statut réel des fonctionnalités
++
++> Cette section existe parce que le reste du README décrirait sinon des capacités
++> que le code n'a pas. Un SOC qui ment sur son propre état est pire qu'un SOC
++> incomplet : c'est précisément quand une sonde tombe que l'analyste doit le savoir.
++> Mise à jour : 2026-10.
++
++### Implémenté et fonctionnel
++| Capacité | Où |
++|---|---|
++| Ingestion → normalisation ECS-like → pipeline d'acceptation | `backend/app/application/{pipeline,normalization}.py` |
++| Corrélation par règles persistée en base + MITRE ATT&CK | `backend/app/application/rules/`, `domain/rule_models.py` |
++| Cases, investigations, hunts, recommandations | `backend/app/application/{cases,hunts,investigations}/` |
++| RBAC (viewer < analyst < admin < super_admin) + multi-tenancy | `backend/app/core/rbac.py`, `interface/middleware/tenant.py` |
++| Ingestion syslog agentless (RFC5424, TCP+UDP 1514) | `backend/app/infrastructure/syslog/` |
++| Stockage time-series TimescaleDB (hypertables) | `backend/app/infrastructure/timescale.py` |
++| Threat intelligence (AbuseIPDB) avec cache TTL | `backend/app/infrastructure/threat_intel/` |
++| Playbooks SOAR + actions de réponse réelles (blocage Wazuh, quarantaine SSH, restart de service) avec approbation et rollback | `backend/app/application/{soar,response}/` |
++| Notifications (email/Telegram/webhook) chiffrées Fernet | `backend/app/infrastructure/notifications/` |
++| Rapports (génération + templates + livraison) et exports | `backend/app/application/reporting/` |
++| Terminal de diagnostic restreint vers Suricata (SSH, host key vérifiée) | `backend/app/interface/api/terminal.py` |
++
++### Partiel — dépend d'un déploiement réel
++| Capacité | Limite |
++|---|---|
++| Source Wazuh (alertes, agents, topologie) | Nécessite un Wazuh manager joignable. S'il est absent, la topologie renvoie encore des **agents fictifs** (`application/wazuh/topology.py`) — à remplacer par un état `source_unavailable`. |
++| Source Suricata | Désactivée par défaut (`ENABLE_SURICATA_SOURCE=False`) ; ingestion EVE fonctionnelle. |
++| Terminal Wazuh | Passe par `docker exec` depuis le backend : ne fonctionne que si le backend a accès au socket Docker (donc **pas** dans `docker-compose.prod.yml`, qui est `read_only` + sans socket). |
++| Matériel des agents | `infrastructure/wazuh/client.py` renvoie des valeurs **mock** (`"Intel Core i7-10700K (Mock)"`) quand l'agent ne répond pas. |
++| IPS | Suricata est utilisé en **IDS** (détection). Il n'y a pas de blocage inline ; le "IPS" du titre passe par les actions de réponse (blocage d'IP via Wazuh/SSH). |
++| Bande passante « par analyste » | `interface/api/sensors.py` échantillonne `psutil.net_io_counters()` **du serveur** et l'attribue à chaque analyste en ligne. Ce n'est pas le trafic du poste client — il faudrait l'agent hôte pour cela. |
++
++### Non implémenté (assumé)
++| Capacité | État |
++|---|---|
++| Push de configuration vers les équipements réseau | **Générateur de commandes CLI uniquement** (Cisco/Juniper/Arista/Fortinet/…). `POST /{id}/push-config` renvoie désormais `success: false` avec la mention *DRY RUN* : aucun transport SSH n'existe pour les équipements. |
++| Test de connectivité d'un équipement | Sonde **TCP réelle** vers le port d'administration (auparavant : `random.random() > 0.3` persisté en base). Ne teste ni SSH ni l'authentification. |
++| Paiement / licences (PricingPage, champs Stripe) | Interface présente, aucun backend de paiement branché. |
++| Reconnaissance faciale comme facteur d'authentification | À considérer comme **expérimental et faible** : le chemin de secours compare des histogrammes couleur Haar (`cv2.compareHist`, seuil 0.78), ce n'est pas une biométrie ; la « liveness » (ratio de texture) est battue par une photo imprimée. À ne jamais utiliser comme seul facteur. |
++| Honeypot | Écoute réelle sur 2323/3389/8443/5555 dans le processus API, tenant codé en dur à `default`, non isolé. À déplacer dans son propre service. |
++
++### Dette connue
++- Pas d'Alembic : le schéma est créé par `Base.metadata.create_all()` puis ajusté par **8 `ALTER TABLE` interpolés à la main**. Aucun rollback, aucun historique de version.
++- Deux frontends React séparés (`frontend/`, `admin-frontend/`) avec deux systèmes de design et deux implémentations d'auth.
++- La classification de sévérité « critique » diffère selon les écrans (>=7, >=8, >=10, >=12). Un helper unique existe maintenant dans `frontend/src/lib/formatters.js` ; les 6 call-sites restent à migrer.
++- Le mot de passe de la console admin **est** `ADMIN_API_KEY` (secret statique partagé, pas de comptes nominatifs).
++
++---
++
+ ## 🏗️ Architecture Overview
+ 
+ Sentinel Bridge follows a **Clean Architecture** pattern with strict separation of concerns, ensuring maintainability, testability, and scalability.
+diff --git a/backend/Dockerfile b/backend/Dockerfile
+new file mode 100644
+index 0000000..2fae612
+--- /dev/null
++++ b/backend/Dockerfile
+@@ -0,0 +1,46 @@
++# syntax=docker/dockerfile:1
++# Backend image — used by docker-compose.prod.yml (backend/worker/syslog) and by CI.
++# The repo referenced `build: ./backend` but shipped no Dockerfile, so neither
++# `docker compose -f docker-compose.prod.yml up --build` nor the CI build job worked.
++
++FROM python:3.13-slim AS base
++
++ENV PYTHONDONTWRITEBYTECODE=1 \
++    PYTHONUNBUFFERED=1 \
++    PIP_NO_CACHE_DIR=1 \
++    PIP_DISABLE_PIP_VERSION_CHECK=1
++
++# Build deps for the onnxruntime/insightface/opencv wheels + curl for the healthcheck.
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends build-essential libgl1 libglib2.0-0 curl \
++    && rm -rf /var/lib/apt/lists/*
++
++WORKDIR /app
++
++# Dependency layer first (cache-friendly).
++COPY requirements.txt ./
++RUN pip install -r requirements.txt \
++    # insightface pulls the GUI opencv build, which collides with the headless one
++    && pip uninstall -y opencv-python \
++    && pip install --force-reinstall --no-deps opencv-python-headless==4.14.0.94
++
++COPY app ./app
++COPY migrations ./migrations
++COPY scripts ./scripts
++COPY tests ./tests
++COPY ruff.toml ./
++
++# Non-root runtime user; compose already sets read_only + no-new-privileges.
++RUN useradd --create-home --uid 10001 sentinel \
++    && mkdir -p /app/app/face_data /tmp/sentinel \
++    && chown -R sentinel:sentinel /app /tmp/sentinel
++USER sentinel
++
++EXPOSE 8000
++HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
++    CMD curl -fsS http://127.0.0.1:8000/health || exit 1
++
++# --proxy-headers: the container sits behind nginx in docker-compose.prod.yml, so
++# request.client.host would otherwise be the proxy for every client and the login
++# rate-limit would be global instead of per-attacker.
++CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+diff --git a/backend/app/auth.py b/backend/app/auth.py
+index 2a8e564..5e4e89e 100644
+--- a/backend/app/auth.py
++++ b/backend/app/auth.py
+@@ -6,7 +6,6 @@ from .core.auth import (  # noqa: F401
+     get_api_key,
+     get_api_key_or_jwt,
+     api_key_auth,
+-    get_token,
+     get_token_from_request,
+     has_scopes,
+     has_scopes_or_api_key,
+diff --git a/backend/app/core/auth.py b/backend/app/core/auth.py
+index 9a5424e..d2951cc 100644
+--- a/backend/app/core/auth.py
++++ b/backend/app/core/auth.py
+@@ -1,267 +1,260 @@
+-import secrets
+-from fastapi import Header, HTTPException, Request, status, Query, Depends
+-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+-from .jwt_utils import verify_token
+-from .config import settings
+-
+-# We are going to use the OAuth2PasswordBearer to extract the token from the Authorization header.
+-# However, for WebSocket, we don't have headers, so we will also support token as a query parameter.
+-# We'll create a dependency that can get the token from either the header or the query parameter.
+-
+-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+-http_bearer = HTTPBearer(auto_error=False)
+-
+-async def get_token_from_header(token: str = Depends(oauth2_scheme)):
+-    if token is None:
+-        raise HTTPException(
+-            status_code=status.HTTP_401_UNAUTHORIZED,
+-            detail="Not authenticated",
+-            headers={"WWW-Authenticate": "Bearer"},
+-        )
+-    return token
+-
+-async def get_token_from_query(token: str = Query(None)):
+-    if token is None:
+-        raise HTTPException(
+-            status_code=status.HTTP_401_UNAUTHORIZED,
+-            detail="Not authenticated",
+-            headers={"WWW-Authenticate": "Bearer"},
+-        )
+-    return token
+-
+-# Let's create a simple API key authentication for services that need it
+-async def get_api_key(api_key: str = Header(None, alias="X-API-Key")):
+-    if api_key is None or api_key != settings.API_KEY.get_secret_value():
+-        raise HTTPException(
+-            status_code=status.HTTP_403_FORBIDDEN,
+-            detail="Could not validate API key",
+-        )
+-    return api_key
+-
+-# Combined auth: accepts either X-API-Key header OR JWT Bearer token
+-async def get_api_key_or_jwt(
+-    api_key: str = Header(None, alias="X-API-Key"),
+-    authorization: str = Header(None, alias="Authorization"),
+-):
+-    # Try API key first
+-    if api_key and api_key == settings.API_KEY.get_secret_value():
+-        return api_key
+-    
+-    # Try JWT Bearer token
+-    if authorization:
+-        scheme, token = authorization.split() if " " in authorization else (None, None)
+-        if scheme and scheme.lower() == "bearer" and token:
+-            from .jwt_utils import verify_token
+-            payload = verify_token(token)
+-            if payload:
+-                return token
+-            # Console-admin token (ADMIN_JWT_SECRET): accepted as operator.
+-            from ..admin_auth import verify_admin_token
+-            if verify_admin_token(token) is not None:
+-                return token
+-    
+-    raise HTTPException(
+-        status_code=status.HTTP_403_FORBIDDEN,
+-        detail="Could not validate credentials. Provide X-API-Key header or Bearer token.",
+-    )
+-
+-# Create the api_key_auth dependency that analyse.py expects
+-api_key_auth = Depends(get_api_key)
+-
+-# We'll create a dependency that tries to get the token from the header first, then from the query.
+-async def get_token(
+-    header_token: str = Depends(get_token_from_header, use_cache=False),
+-    query_token: str = Depends(get_token_from_query, use_cache=False),
+-):
+-    # If header token is provided, use it; otherwise, use query token.
+-    # Note: the Depends with use_cache=False is to allow both to be called? Actually, we want to try header first.
+-    # We can do: if header_token is not None, return header_token, else return query_token.
+-    # But note: the dependency system will call both functions. We want to avoid calling the query token function if header token is present?
+-    # We can't easily do that with Depends. We'll create a new function that takes both as optional and then choose.
+-    pass
+-
+-# Let's do it differently: we'll create a single function that tries to get the token from the header, and if not present, from the query.
+-# We can't do that with two separate dependencies because we don't know which one will be called first.
+-# We'll create a custom dependency that gets the token from the request.
+-
+-from fastapi import Request
+-
+-async def get_token_from_request(request: Request):
+-    # Try to get token from Authorization header
+-    authorization: str = request.headers.get("Authorization")
+-    if authorization:
+-        scheme, token = authorization.split()
+-        if scheme.lower() == "bearer":
+-            return token
+-    # Try to get token from query parameter
+-    token = request.query_params.get("token")
+-    if token:
+-        return token
+-    raise HTTPException(
+-        status_code=status.HTTP_401_UNAUTHORIZED,
+-        detail="Not authenticated",
+-        headers={"WWW-Authenticate": "Bearer"},
+-    )
+-
+-# Now we create a dependency that uses the get_token_from_request and then verifies the token and checks scopes.
+-from typing import List, Set, Optional
+-
+-def has_scopes(required_scopes: List[str]):
+-    async def scope_verifier(token: str = Depends(get_token_from_request)):
+-        payload = verify_token(token)
+-        if payload is None:
+-            raise HTTPException(
+-                status_code=status.HTTP_401_UNAUTHORIZED,
+-                detail="Could not validate credentials",
+-                headers={"WWW-Authenticate": "Bearer"},
+-            )
+-        token_scopes: Set[str] = set(payload.get("scopes", []))
+-        required_scopes_set: Set[str] = set(required_scopes)
+-        if not required_scopes_set.issubset(token_scopes):
+-            raise HTTPException(
+-                status_code=status.HTTP_403_FORBIDDEN,
+-                detail="Not enough permissions",
+-                headers={"WWW-Authenticate": "Bearer"},
+-            )
+-        return payload
+-    return scope_verifier
+-
+-# Combined scope checker: accepts either JWT with required scopes OR API key
+-def has_scopes_or_api_key(required_scopes: List[str]):
+-    async def scope_verifier(
+-        api_key: str = Header(None, alias="X-API-Key"),
+-        authorization: str = Header(None, alias="Authorization"),
+-        x_tenant_id: str = Header(None, alias="X-Tenant-ID"),
+-    ):
+-        # Try API key first (has all permissions)
+-        if api_key and api_key == settings.API_KEY.get_secret_value():
+-            tenant_id = x_tenant_id or "default"
+-            return {"scopes": required_scopes, "sub": "api_key", "tenant_id": tenant_id}
+-        
+-        # Try JWT Bearer token
+-        if authorization:
+-            scheme, token = authorization.split() if " " in authorization else (None, None)
+-            if scheme and scheme.lower() == "bearer" and token:
+-                payload = verify_token(token)
+-                if payload:
+-                    token_scopes: Set[str] = set(payload.get("scopes", []))
+-                    required_scopes_set: Set[str] = set(required_scopes)
+-                    if required_scopes_set.issubset(token_scopes):
+-                        return payload
+-                else:
+-                    # Console-admin token (ADMIN_JWT_SECRET): operator, all scopes.
+-                    from ..admin_auth import verify_admin_token
+-                    admin_payload = verify_admin_token(token)
+-                    if admin_payload is not None:
+-                        return admin_payload
+-        
+-        raise HTTPException(
+-            status_code=status.HTTP_401_UNAUTHORIZED,
+-            detail="Not authenticated. Provide X-API-Key header or Bearer token with required scopes.",
+-            headers={"WWW-Authenticate": "Bearer"},
+-        )
+-    return scope_verifier
+-
+-
+-def webhook_token_auth(source: str):
+-    """Factory returning a FastAPI dependency for webhook endpoint auth.
+-
+-    X-SOC-Token header (if present) is matched against stored tokens across
+-    all tenants (constant-time compare). On match, request.state.tenant_id
+-    is set. If no match but X-SOC-Token present → 401 immediately.
+-    If X-SOC-Token absent → fall back to get_api_key_or_jwt.
+-    Never logs the token value.
+-    """
+-    from app.application.system_config import get_config_value
+-    from app.db import SessionLocal
+-    from app.domain.models import Tenant
+-
+-    async def _auth(
+-        x_soc_token: str = Header(None, alias="X-SOC-Token"),
+-        api_key: str = Header(None, alias="X-API-Key"),
+-        authorization: str = Header(None, alias="Authorization"),
+-        request: Request = None,
+-    ):
+-        if request is not None:
+-            if x_soc_token:
+-                db = SessionLocal()
+-                try:
+-                    webhook_section = f"{source}_webhook"
+-                    tenants = db.query(Tenant).all()
+-                    for tenant in tenants:
+-                        stored_token = get_config_value(
+-                            db, webhook_section, "token", tenant_id=tenant.id
+-                        )
+-                        if stored_token and secrets.compare_digest(
+-                            str(x_soc_token), str(stored_token)
+-                        ):
+-                            request.state.tenant_id = tenant.id
+-                            return
+-                    # Token present but matched no tenant → 401
+-                    raise HTTPException(
+-                        status_code=status.HTTP_401_UNAUTHORIZED,
+-                        detail="Invalid webhook token",
+-                    )
+-                finally:
+-                    db.close()
+-
+-        # No X-SOC-Token → fall back to existing auth
+-        await get_api_key_or_jwt(api_key=api_key, authorization=authorization)
+-
+-    return _auth
+-
+-
+-def webhook_slug_auth(source: str):
+-    """Factory returning a FastAPI dependency for SLUGGED per-tenant webhook URLs.
+-
+-    POST /api/{source}/webhook/{slug} — l'URL elle-même est un secret partagé
+-    (revocable via rotation du slug). Résout le tenant par match du slug
+-    (constante de temps) et fixe request.state.tenant_id. Slug inconnu → 404
+-    (ne pas fuir l'existence). Si X-SOC-Token est fourni, il doit matcher le
+-    token du tenant résolu (constante de temps) → sinon 401.
+-    Ne journalise jamais ni slug ni token.
+-    """
+-    from app.application.system_config import get_config_value
+-    from app.db import SessionLocal
+-    from app.domain.models import Tenant
+-
+-    async def _auth(
+-        slug: str,
+-        x_soc_token: str | None = Header(None, alias="X-SOC-Token"),
+-        request: Request = None,
+-    ):
+-        if request is not None:
+-            db = SessionLocal()
+-            try:
+-                webhook_section = f"{source}_webhook"
+-                tenants = db.query(Tenant).all()
+-                matched_tenant_id = None
+-                for tenant in tenants:
+-                    stored_slug = get_config_value(db, webhook_section, "slug", tenant_id=tenant.id)
+-                    if stored_slug and secrets.compare_digest(str(slug), str(stored_slug)):
+-                        matched_tenant_id = tenant.id
+-                        break
+-                if matched_tenant_id is None:
+-                    raise HTTPException(
+-                        status_code=status.HTTP_404_NOT_FOUND,
+-                        detail="Unknown webhook URL",
+-                    )
+-                if x_soc_token:
+-                    stored_token = get_config_value(db, webhook_section, "token", tenant_id=matched_tenant_id)
+-                    if not stored_token or not secrets.compare_digest(
+-                        str(x_soc_token), str(stored_token)
+-                    ):
+-                        raise HTTPException(
+-                            status_code=status.HTTP_401_UNAUTHORIZED,
+-                            detail="Invalid webhook token",
+-                        )
+-                request.state.tenant_id = matched_tenant_id
+-                return
+-            finally:
+-                db.close()
+-        raise HTTPException(
+-            status_code=status.HTTP_404_NOT_FOUND,
+-            detail="Unknown webhook URL",
+-        )
+-
++import secrets
++from fastapi import Header, HTTPException, Request, status, Query, Depends
++from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
++from .jwt_utils import verify_token
++from .config import settings
++
++# We are going to use the OAuth2PasswordBearer to extract the token from the Authorization header.
++# However, for WebSocket, we don't have headers, so we will also support token as a query parameter.
++# We'll create a dependency that can get the token from either the header or the query parameter.
++
++oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
++http_bearer = HTTPBearer(auto_error=False)
++
++async def get_token_from_header(token: str = Depends(oauth2_scheme)):
++    if token is None:
++        raise HTTPException(
++            status_code=status.HTTP_401_UNAUTHORIZED,
++            detail="Not authenticated",
++            headers={"WWW-Authenticate": "Bearer"},
++        )
++    return token
++
++async def get_token_from_query(token: str = Query(None)):
++    if token is None:
++        raise HTTPException(
++            status_code=status.HTTP_401_UNAUTHORIZED,
++            detail="Not authenticated",
++            headers={"WWW-Authenticate": "Bearer"},
++        )
++    return token
++
++# Let's create a simple API key authentication for services that need it
++def _key_matches(provided, expected) -> bool:
++    """Constant-time comparison. `==` on a secret leaks length/prefix via timing."""
++    if not provided or not expected:
++        return False
++    return secrets.compare_digest(provided, expected)
++
++
++async def get_api_key(api_key: str = Header(None, alias="X-API-Key")):
++    if not _key_matches(api_key, settings.API_KEY.get_secret_value()):
++        raise HTTPException(
++            status_code=status.HTTP_403_FORBIDDEN,
++            detail="Could not validate API key",
++        )
++    return api_key
++
++# Combined auth: accepts either X-API-Key header OR JWT Bearer token
++async def get_api_key_or_jwt(
++    api_key: str = Header(None, alias="X-API-Key"),
++    authorization: str = Header(None, alias="Authorization"),
++):
++    # Try API key first
++    if _key_matches(api_key, settings.API_KEY.get_secret_value()):
++        return api_key
++    
++    # Try JWT Bearer token
++    if authorization:
++        scheme, token = authorization.split() if " " in authorization else (None, None)
++        if scheme and scheme.lower() == "bearer" and token:
++            from .jwt_utils import verify_token
++            payload = verify_token(token)
++            if payload:
++                return token
++            # Console-admin token (ADMIN_JWT_SECRET): accepted as operator.
++            from ..admin_auth import verify_admin_token
++            if verify_admin_token(token) is not None:
++                return token
++    
++    raise HTTPException(
++        status_code=status.HTTP_403_FORBIDDEN,
++        detail="Could not validate credentials. Provide X-API-Key header or Bearer token.",
++    )
++
++# Create the api_key_auth dependency that analyse.py expects
++api_key_auth = Depends(get_api_key)
++
++# FIX: removed the dead `get_token()` stub (its body was `pass`) together with the
++# ~12 lines of draft reasoning comments left above it ("Let's do it differently:",
++# "Actually, we want to try header first."). get_token_from_request below is the real one.
++
++async def get_token_from_request(request: Request):
++    # Try to get token from Authorization header
++    authorization: str = request.headers.get("Authorization")
++    if authorization:
++        scheme, token = authorization.split()
++        if scheme.lower() == "bearer":
++            return token
++    # Try to get token from query parameter
++    token = request.query_params.get("token")
++    if token:
++        return token
++    raise HTTPException(
++        status_code=status.HTTP_401_UNAUTHORIZED,
++        detail="Not authenticated",
++        headers={"WWW-Authenticate": "Bearer"},
++    )
++
++# Now we create a dependency that uses the get_token_from_request and then verifies the token and checks scopes.
++from typing import List, Set, Optional
++
++def has_scopes(required_scopes: List[str]):
++    async def scope_verifier(token: str = Depends(get_token_from_request)):
++        payload = verify_token(token)
++        if payload is None:
++            raise HTTPException(
++                status_code=status.HTTP_401_UNAUTHORIZED,
++                detail="Could not validate credentials",
++                headers={"WWW-Authenticate": "Bearer"},
++            )
++        token_scopes: Set[str] = set(payload.get("scopes", []))
++        required_scopes_set: Set[str] = set(required_scopes)
++        if not required_scopes_set.issubset(token_scopes):
++            raise HTTPException(
++                status_code=status.HTTP_403_FORBIDDEN,
++                detail="Not enough permissions",
++                headers={"WWW-Authenticate": "Bearer"},
++            )
++        return payload
++    return scope_verifier
++
++# Combined scope checker: accepts either JWT with required scopes OR API key
++def has_scopes_or_api_key(required_scopes: List[str]):
++    async def scope_verifier(
++        api_key: str = Header(None, alias="X-API-Key"),
++        authorization: str = Header(None, alias="Authorization"),
++        x_tenant_id: str = Header(None, alias="X-Tenant-ID"),
++    ):
++        # Try API key first (has all permissions)
++        if _key_matches(api_key, settings.API_KEY.get_secret_value()):
++            tenant_id = x_tenant_id or "default"
++            return {"scopes": required_scopes, "sub": "api_key", "tenant_id": tenant_id}
++        
++        # Try JWT Bearer token
++        if authorization:
++            scheme, token = authorization.split() if " " in authorization else (None, None)
++            if scheme and scheme.lower() == "bearer" and token:
++                payload = verify_token(token)
++                if payload:
++                    token_scopes: Set[str] = set(payload.get("scopes", []))
++                    required_scopes_set: Set[str] = set(required_scopes)
++                    if required_scopes_set.issubset(token_scopes):
++                        return payload
++                else:
++                    # Console-admin token (ADMIN_JWT_SECRET): operator, all scopes.
++                    from ..admin_auth import verify_admin_token
++                    admin_payload = verify_admin_token(token)
++                    if admin_payload is not None:
++                        return admin_payload
++        
++        raise HTTPException(
++            status_code=status.HTTP_401_UNAUTHORIZED,
++            detail="Not authenticated. Provide X-API-Key header or Bearer token with required scopes.",
++            headers={"WWW-Authenticate": "Bearer"},
++        )
++    return scope_verifier
++
++
++def webhook_token_auth(source: str):
++    """Factory returning a FastAPI dependency for webhook endpoint auth.
++
++    X-SOC-Token header (if present) is matched against stored tokens across
++    all tenants (constant-time compare). On match, request.state.tenant_id
++    is set. If no match but X-SOC-Token present → 401 immediately.
++    If X-SOC-Token absent → fall back to get_api_key_or_jwt.
++    Never logs the token value.
++    """
++    from app.application.system_config import get_config_value
++    from app.db import SessionLocal
++    from app.domain.models import Tenant
++
++    async def _auth(
++        x_soc_token: str = Header(None, alias="X-SOC-Token"),
++        api_key: str = Header(None, alias="X-API-Key"),
++        authorization: str = Header(None, alias="Authorization"),
++        request: Request = None,
++    ):
++        if request is not None:
++            if x_soc_token:
++                db = SessionLocal()
++                try:
++                    webhook_section = f"{source}_webhook"
++                    tenants = db.query(Tenant).all()
++                    for tenant in tenants:
++                        stored_token = get_config_value(
++                            db, webhook_section, "token", tenant_id=tenant.id
++                        )
++                        if stored_token and secrets.compare_digest(
++                            str(x_soc_token), str(stored_token)
++                        ):
++                            request.state.tenant_id = tenant.id
++                            return
++                    # Token present but matched no tenant → 401
++                    raise HTTPException(
++                        status_code=status.HTTP_401_UNAUTHORIZED,
++                        detail="Invalid webhook token",
++                    )
++                finally:
++                    db.close()
++
++        # No X-SOC-Token → fall back to existing auth
++        await get_api_key_or_jwt(api_key=api_key, authorization=authorization)
++
++    return _auth
++
++
++def webhook_slug_auth(source: str):
++    """Factory returning a FastAPI dependency for SLUGGED per-tenant webhook URLs.
++
++    POST /api/{source}/webhook/{slug} — l'URL elle-même est un secret partagé
++    (revocable via rotation du slug). Résout le tenant par match du slug
++    (constante de temps) et fixe request.state.tenant_id. Slug inconnu → 404
++    (ne pas fuir l'existence). Si X-SOC-Token est fourni, il doit matcher le
++    token du tenant résolu (constante de temps) → sinon 401.
++    Ne journalise jamais ni slug ni token.
++    """
++    from app.application.system_config import get_config_value
++    from app.db import SessionLocal
++    from app.domain.models import Tenant
++
++    async def _auth(
++        slug: str,
++        x_soc_token: str | None = Header(None, alias="X-SOC-Token"),
++        request: Request = None,
++    ):
++        if request is not None:
++            db = SessionLocal()
++            try:
++                webhook_section = f"{source}_webhook"
++                tenants = db.query(Tenant).all()
++                matched_tenant_id = None
++                for tenant in tenants:
++                    stored_slug = get_config_value(db, webhook_section, "slug", tenant_id=tenant.id)
++                    if stored_slug and secrets.compare_digest(str(slug), str(stored_slug)):
++                        matched_tenant_id = tenant.id
++                        break
++                if matched_tenant_id is None:
++                    raise HTTPException(
++                        status_code=status.HTTP_404_NOT_FOUND,
++                        detail="Unknown webhook URL",
++                    )
++                if x_soc_token:
++                    stored_token = get_config_value(db, webhook_section, "token", tenant_id=matched_tenant_id)
++                    if not stored_token or not secrets.compare_digest(
++                        str(x_soc_token), str(stored_token)
++                    ):
++                        raise HTTPException(
++                            status_code=status.HTTP_401_UNAUTHORIZED,
++                            detail="Invalid webhook token",
++                        )
++                request.state.tenant_id = matched_tenant_id
++                return
++            finally:
++                db.close()
++        raise HTTPException(
++            status_code=status.HTTP_404_NOT_FOUND,
++            detail="Unknown webhook URL",
++        )
++
+     return _auth
+\ No newline at end of file
+diff --git a/backend/app/core/rbac.py b/backend/app/core/rbac.py
+index fc75a30..9b03972 100644
+--- a/backend/app/core/rbac.py
++++ b/backend/app/core/rbac.py
+@@ -6,6 +6,8 @@ legacy fallback. `require_role` is a FastAPI dependency that short-circuits
+ the legacy per-route scope deps (it is inserted at index 0 of
+ route.dependencies).
+ """
++import secrets
++
+ from fastapi import Depends, Header, HTTPException, Request
+ from fastapi.routing import APIRoute
+ from sqlalchemy.orm import Session
+@@ -28,7 +30,9 @@ def resolve_user_role(db, username, tenant_id):
+     if row:
+         return (row.role, row)
+     from ..infrastructure.persistence.password_store import _read_store
+-    return (_read_store().get(f"role:{username}", "analyst"), None)
++    # FIX: unknown users used to default to "analyst" (a role that writes) when they
++    # were absent from TenantUser. An authorisation default must fail closed.
++    return (_read_store().get(f"role:{username}", "viewer"), None)
+ 
+ 
+ def require_role(min_role: str):
+@@ -41,7 +45,7 @@ def require_role(min_role: str):
+         # ── API-key lane ──────────────────────────────────────────────
+         if api_key:
+             if (
+-                api_key == settings.API_KEY.get_secret_value()
++                secrets.compare_digest(api_key, settings.API_KEY.get_secret_value())
+                 and ROLE_RANK[min_role] <= ROLE_RANK["admin"]
+             ):
+                 return {
+@@ -52,7 +56,7 @@ def require_role(min_role: str):
+                 }
+             if min_role == "super_admin":
+                 sa = settings.SUPER_ADMIN_API_KEY.get_secret_value()
+-                if sa and api_key == sa:
++                if sa and secrets.compare_digest(api_key, sa):
+                     return {
+                         "sub": "api_key",
+                         "tenant_id": getattr(request.state, "tenant_id", "default"),
+diff --git a/backend/app/db.py b/backend/app/db.py
+index 32abb66..911ab59 100644
+--- a/backend/app/db.py
++++ b/backend/app/db.py
+@@ -1,2 +1,2 @@
+-from .core.db import engine, SessionLocal, Base, get_db
+-from .application.tenant import get_tenant_id, query_with_tenant
++from .core.db import engine, SessionLocal, Base, get_db  # noqa: F401
++from .application.tenant import get_tenant_id, query_with_tenant  # noqa: F401
+diff --git a/backend/app/infrastructure/honeypot/service.py b/backend/app/infrastructure/honeypot/service.py
+index f77f10e..feb0334 100644
+--- a/backend/app/infrastructure/honeypot/service.py
++++ b/backend/app/infrastructure/honeypot/service.py
+@@ -25,6 +25,11 @@ class HoneypotService:
+         # Rate limit: (src_ip, port) -> last_alert_timestamp
+         self._rate_limit: Dict[tuple, float] = {}
+         self._rate_limit_window: float = 30.0  # secondes
++        # FIX: db_factory was a bare name inside _handle_connection while only being
++        # a parameter of start() -> NameError on every connection, swallowed by the
++        # surrounding `except Exception`, so the honeypot accepted traffic on
++        # 0.0.0.0:2323/3389/8443/5555 and persisted neither alert nor event.
++        self._db_factory: Callable[[], Session] = SessionLocal
+ 
+     @property
+     def running(self) -> bool:
+@@ -44,6 +49,8 @@ class HoneypotService:
+         ports: Optional[List[int]] = None,
+     ):
+         """Lance un asyncio.Server sur chaque port configurable."""
++        if db_factory is not None:
++            self._db_factory = db_factory
+         if ports is None:
+             ports = [2323, 3389, 8443, 5555]
+         self._ports = ports
+@@ -113,7 +120,7 @@ class HoneypotService:
+         # Créer l'alerte via le pipeline
+         alert_id: Optional[int] = None
+         try:
+-            db = db_factory()
++            db = self._db_factory()
+             try:
+                 result = ingest_alert({
+                     "description": f"Honeypot connection on port {port} from {src_ip}",
+@@ -144,7 +151,7 @@ class HoneypotService:
+ 
+         # Persister l'événement
+         try:
+-            db = db_factory()
++            db = self._db_factory()
+             try:
+                 event = HoneypotEvent(
+                     tenant_id="default",
+diff --git a/backend/app/interface/api/agent.py b/backend/app/interface/api/agent.py
+index eb64f56..223fffe 100644
+--- a/backend/app/interface/api/agent.py
++++ b/backend/app/interface/api/agent.py
+@@ -1,5 +1,6 @@
+ import json
+ import logging
++import secrets
+ import uuid
+ from datetime import datetime, timezone
+ from typing import Any, Optional
+@@ -42,11 +43,11 @@ async def agent_auth(
+     api_key: str = Header(None, alias="X-API-Key"),
+     authorization: str = Header(None, alias="Authorization"),
+ ):
+-    if api_key and api_key == settings.API_KEY.get_secret_value():
++    if api_key and secrets.compare_digest(api_key, settings.API_KEY.get_secret_value()):
+         return api_key
+     if authorization:
+         scheme, _, token = authorization.partition(" ")
+-        if scheme.lower() == "bearer" and token == settings.API_KEY.get_secret_value():
++        if scheme.lower() == "bearer" and secrets.compare_digest(token, settings.API_KEY.get_secret_value()):
+             return token
+     raise HTTPException(status_code=403, detail="Could not validate credentials")
+ 
+diff --git a/backend/app/interface/api/auth.py b/backend/app/interface/api/auth.py
+index adcc35a..2e1b766 100644
+--- a/backend/app/interface/api/auth.py
++++ b/backend/app/interface/api/auth.py
+@@ -1,5 +1,6 @@
+ import logging
+ import re
++import secrets
+ from datetime import datetime, timedelta, timezone
+ from fastapi import APIRouter, Depends, HTTPException, Request, status
+ from fastapi.security import OAuth2PasswordRequestForm
+@@ -100,7 +101,7 @@ async def register_user(data: RegisterRequest, request: Request, db: Session = D
+         if scheme and scheme.lower() == "bearer" and token and verify_token(token):
+             authenticated = True
+     api_key = request.headers.get("X-API-Key")
+-    if api_key and api_key == settings.API_KEY.get_secret_value():
++    if api_key and secrets.compare_digest(api_key, settings.API_KEY.get_secret_value()):
+         authenticated = True
+ 
+     tenant_id = getattr(request.state, "tenant_id", "default")
+@@ -196,14 +197,25 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
+         window_seconds=settings.AUTH_LOGIN_RATE_LIMIT_WINDOW,
+     )
+ 
++    # FIX: tenant_id=None made check_password() test the hash of EVERY tenant that has
++    # this username ("Cross-tenant lookup" in password_store.py), and the role lookup
++    # below took an arbitrary `.first()` row. Two tenants each having a user named
++    # "admin" could therefore authenticate into each other's tenant. /auth/token is a
++    # public route (no JWT to derive the tenant from), so the tenant is taken from an
++    # explicit X-Tenant-ID header.
++    login_tenant = (request.headers.get("X-Tenant-ID") or "default") if request else "default"
++
+     user_key = f"user:{form_data.username}"
+-    if check_password(user_key, form_data.password, tenant_id=None):
++    if check_password(user_key, form_data.password, tenant_id=login_tenant):
+         # Resolve role from TenantUser table (supersedes JSON store)
+         from ...models import TenantUser
+         from ...db import SessionLocal
+         db = SessionLocal()
+         try:
+-            tenant_user = db.query(TenantUser).filter(TenantUser.username == form_data.username).first()
++            tenant_user = db.query(TenantUser).filter(
++                TenantUser.username == form_data.username,
++                TenantUser.tenant_id == login_tenant,
++            ).first()
+             if tenant_user:
+                 role = tenant_user.role
+                 tenant_user.last_login = datetime.now(timezone.utc)
+@@ -213,7 +225,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
+                 from ...services.password_manager import _read_store
+                 role_store = _read_store()
+                 role = role_store.get(f"role:{form_data.username}", "analyst")
+-            resolved_tenant_id = tenant_user.tenant_id if tenant_user else "default"
++            resolved_tenant_id = tenant_user.tenant_id if tenant_user else login_tenant
++            if tenant_user and tenant_user.is_active is False:
++                raise HTTPException(status_code=403, detail="Compte désactivé")
+         finally:
+             db.close()
+ 
+diff --git a/backend/app/interface/api/database.py b/backend/app/interface/api/database.py
+index 33f282d..dc9ee16 100644
+--- a/backend/app/interface/api/database.py
++++ b/backend/app/interface/api/database.py
+@@ -520,14 +520,38 @@ async def insert_row(
+ # ── Delete (drop) a table ─────────────────────────────────────────
+ 
+ # Tables that should NEVER be droppable through the UI
+-PROTECTED_TABLES = {"users", "connection_logs", "suricata_alerts",
+-                    "assets", "alerts", "ia_reports", "access_logs", "action_logs",
+-                    "system_config", "network_sensors", "devices",
+-                    "tenants", "tenant_users", "network_devices",
+-                    "rules", "rule_match_events", "pipeline_events",
+-                    "cases", "case_alert_links", "timeline_events", "hunts",
+-                    "playbooks", "playbook_runs", "playbook_step_results",
+-                    "threat_intel_cache"}
++# FIX: this was a hand-maintained literal of 25 names while the ORM declares 46
++# tables, so 22 real tables (investigations, response_runs, agents,
++# registration_requests, notification_channels, honeypot_events, reports, …) were
++# silently droppable through DELETE /tables/{name} — and the list even protected a
++# "users" table that does not exist. Deriving it from the ORM metadata means it can
++# no longer drift when a model is added.
++_LEGACY_PROTECTED_TABLES = {
++    "users", "connection_logs", "suricata_alerts",
++    "assets", "alerts", "ia_reports", "access_logs", "action_logs",
++    "system_config", "network_sensors", "devices",
++    "tenants", "tenant_users", "network_devices",
++    "rules", "rule_match_events", "pipeline_events",
++    "cases", "case_alert_links", "timeline_events", "hunts",
++    "playbooks", "playbook_runs", "playbook_step_results",
++    "threat_intel_cache",
++}
++
++
++def _protected_tables() -> set:
++    """Every table the application owns = ORM metadata ∪ legacy literal list."""
++    from ...core.db import Base
++    from ...domain import investigations as _inv        # noqa: F401  (populates metadata)
++    from ...domain import models as _models             # noqa: F401
++    from ...domain import reporting as _rep             # noqa: F401
++    from ...domain import response as _res              # noqa: F401
++    from ...domain import rule_models as _rules         # noqa: F401
++    from ...domain import soar as _soar                 # noqa: F401
++
++    return set(Base.metadata.tables.keys()) | _LEGACY_PROTECTED_TABLES
++
++
++PROTECTED_TABLES = _protected_tables()
+ 
+ 
+ @router.delete("/tables/{table_name}")
+@@ -542,10 +566,10 @@ async def drop_table(
+     valid_tables = set(inspector.get_table_names(schema="public"))
+     if table_name not in valid_tables:
+         raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
+-    if table_name in PROTECTED_TABLES:
++    if table_name in _protected_tables():
+         raise HTTPException(
+             status_code=403,
+-            detail=f"Table '{table_name}' is a system table and cannot be dropped",
++            detail=f"Table '{table_name}' is owned by the application and cannot be dropped",
+         )
+ 
+     try:
+@@ -575,6 +599,56 @@ ALLOWED_TYPES = {
+ }
+ 
+ 
++_SIZEABLE_TYPES = {"varchar", "character varying", "char", "numeric"}
++_ALLOWED_DEFAULTS = {
++    "now()", "current_timestamp", "current_date", "current_time",
++    "gen_random_uuid()", "uuid_generate_v4()", "true", "false", "null",
++}
++_NUMERIC_DEFAULT_RE = re.compile(r"^-?\d+(\.\d+)?$")
++_STRING_DEFAULT_RE = re.compile(r"^'[^'\\]*'$")
++_TYPE_MODIFIER_RE = re.compile(r"^(.*?)\s*\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)$")
++
++
++def _validate_column_type(raw: str) -> str:
++    """FIX: `col.type` was interpolated straight into CREATE TABLE while the
++    ALLOWED_TYPES set declared right above it was NEVER used, so a type such as
++    `integer); DROP TABLE tenants; --` ended up concatenated into the DDL.
++    `col.default` was interpolated raw too, behind a comment claiming it was
++    "validated" — it was not."""
++    collapsed = " ".join(str(raw).split())
++    match = _TYPE_MODIFIER_RE.match(collapsed)
++    if match:
++        base = match.group(1).strip().lower()
++        modifiers = [m for m in match.group(2, 3) if m]
++    else:
++        base, modifiers = collapsed.lower(), []
++
++    if base not in ALLOWED_TYPES:
++        raise HTTPException(
++            status_code=400,
++            detail=f"Column type '{raw}' is not allowed. Allowed: {', '.join(sorted(ALLOWED_TYPES))}",
++        )
++    if not modifiers:
++        return base.upper()
++    if base not in _SIZEABLE_TYPES:
++        raise HTTPException(status_code=400, detail=f"Type '{base}' does not accept a size modifier")
++    return f"{base.upper()}({', '.join(modifiers)})"
++
++
++def _validate_default(raw: str) -> str:
++    """Only literals and a short list of immutable SQL functions are accepted."""
++    value = " ".join(str(raw).split())
++    lowered = value.lower()
++    if lowered in _ALLOWED_DEFAULTS:
++        return lowered.upper() if lowered in ("true", "false", "null") else value
++    if _NUMERIC_DEFAULT_RE.match(value) or _STRING_DEFAULT_RE.match(value):
++        return value
++    raise HTTPException(
++        status_code=400,
++        detail=f"DEFAULT '{raw}' is not allowed (literals, now(), current_timestamp and gen_random_uuid() only)",
++    )
++
++
+ class ColumnDef(BaseModel):
+     name: str
+     type: str  # e.g. "integer", "varchar(255)", "text", "boolean"
+@@ -625,7 +699,7 @@ async def create_table(
+     for col in body.columns:
+         col_name = col.name.strip()
+         # Normalize type: "varchar(255)" → "VARCHAR(255)", "text" → "TEXT", etc.
+-        col_type = col.type.strip().upper()
++        col_type = _validate_column_type(col.type)
+ 
+         parts = [f'"{col_name}" {col_type}']
+ 
+@@ -636,8 +710,7 @@ async def create_table(
+             pk_cols.append(f'"{col_name}"')
+             parts.append("PRIMARY KEY")
+         elif col.default is not None:
+-            # Validate default is a simple safe SQL expression
+-            parts.append(f"DEFAULT {col.default}")
++            parts.append(f"DEFAULT {_validate_default(col.default)}")
+ 
+         col_defs.append("    " + " ".join(parts))
+ 
+diff --git a/backend/app/interface/api/faces.py b/backend/app/interface/api/faces.py
+index 64b58f3..bdf1291 100644
+--- a/backend/app/interface/api/faces.py
++++ b/backend/app/interface/api/faces.py
+@@ -98,15 +98,16 @@ async def verify_face(
+     return {"status": "success", "message": message, "verified": True}
+ 
+ 
+-@router.post("/identify")
++@router.post("/identify", dependencies=[Depends(has_scopes_or_api_key(["surveillance:read"]))])
+ async def identify_face(
+     request: FaceIdentifyRequest,
+     req: Request,
+ ):
+     """Identifie un visage parmi les utilisateurs enregistrés du tenant.
+-    Public (pré-auth) : comme capture-unknown, permet de savoir si un visage
+-    présent correspond à un utilisateur enregistré OU à un visiteur non autorisé.
+-    Retourne l'utilisateur reconnu, ou signale un visiteur non autorisé (inconnu)."""
++    FIX: cet endpoint était PUBLIC ("pré-auth") et renvoyait le username reconnu —
++    un oracle d'identification biométrique 1:N sans authentification ni rate-limit,
++    permettant d'énumérer les identités du tenant (donnée biométrique => art. 9 RGPD).
++    Il exige désormais le scope `surveillance:read` (viewer+) ou la clé d'API."""
+     tenant_id = get_tenant_id(req)
+     username, similarity, message = face_service.identify_face(request.image, tenant_id=tenant_id)
+     if username is None:
+diff --git a/backend/app/interface/api/network_config.py b/backend/app/interface/api/network_config.py
+index afce128..a4be896 100644
+--- a/backend/app/interface/api/network_config.py
++++ b/backend/app/interface/api/network_config.py
+@@ -4,6 +4,8 @@ Wizard-friendly API: provides config templates per device type/brand.
+ """
+ import json
+ import logging
++import socket
++import time
+ from datetime import datetime, timezone
+ from typing import Any, Optional, Dict, List
+ 
+@@ -19,6 +21,9 @@ from ...infrastructure.network_device.command_builder import generate_commands,
+ logger = logging.getLogger(__name__)
+ router = APIRouter(prefix="/api/network-devices", tags=["network-devices"])
+ 
++# TCP probe budget for /test-connection (seconds).
++TEST_CONNECT_TIMEOUT = 3.0
++
+ 
+ # ─── Config Templates ───────────────────────────────────────────────
+ # Predefined configuration "puzzle pieces" per device type + brand
+@@ -186,24 +191,37 @@ def test_connection(
+     _user: Any = Depends(get_api_key_or_jwt),
+     _scope: Any = Depends(has_scopes_or_api_key(["admin:manage"])),
+ ):
+-    """Simulate testing SSH/telnet connectivity to a device."""
+-    import time, random
++    """Real TCP reachability probe against the device management port.
++
++    FIX: this used to be `random.random() > 0.3` — a coin flip whose result was then
++    *persisted* as the device status, so the whole inventory ("online"/"error") was
++    noise presented as ground truth. It now does an actual connect() with a timeout
++    and only writes what it observed.
++    """
+     d = query_with_tenant(NetworkDevice, request, db).filter(NetworkDevice.id == device_id).first()
+     if not d:
+         raise HTTPException(404, "Device not found")
+-    # Simulate connection test (demo mode)
+-    latency = round(random.uniform(2, 50), 1)
+-    reachable = random.random() > 0.3  # 70% success rate for demo
++
++    port = int(getattr(d, "port", 0) or 22)
++    started = time.perf_counter()
++    error: Optional[str] = None
++    try:
++        with socket.create_connection((d.ip, port), timeout=TEST_CONNECT_TIMEOUT):
++            reachable = True
++    except OSError as exc:
++        reachable = False
++        error = f"{type(exc).__name__}: {exc}"
++
++    latency = round((time.perf_counter() - started) * 1000, 1) if reachable else None
++    d.status = "online" if reachable else "error"
+     if reachable:
+-        d.status = "online"
+         d.last_connected = datetime.now(timezone.utc)
+-    else:
+-        d.status = "error"
+     db.commit()
+     return {
+         "status": "online" if reachable else "offline",
+-        "latency_ms": latency if reachable else None,
+-        "error": None if reachable else "Connection timeout",
++        "latency_ms": latency,
++        "port": port,
++        "error": None if reachable else (error or "Connection timeout"),
+         "device": _device_dict(d),
+     }
+ 
+@@ -217,7 +235,14 @@ def push_config(
+     _user: Any = Depends(get_api_key_or_jwt),
+     _scope: Any = Depends(has_scopes_or_api_key(["admin:manage"])),
+ ):
+-    """Generate CLI commands and simulate push (no actual SSH in demo mode)."""
++    """Generate the CLI commands for a device (dry run).
++
++    FIX: this returned `success: true` with "Simulated push of N commands" while
++    nothing was ever sent to the device — and the UI toasted "Configuration
++    appliquée". There is no SSH transport for network devices, so the endpoint now
++    reports a dry run honestly (the frontend already had the `toast.warning(data.error)`
++    branch for exactly this case).
++    """
+     d = query_with_tenant(NetworkDevice, request, db).filter(NetworkDevice.id == device_id).first()
+     if not d:
+         raise HTTPException(404, "Device not found")
+@@ -225,11 +250,15 @@ def push_config(
+     brand = getattr(d, "brand", cfg.get("brand", "cisco"))
+     device_type = getattr(d, "device_type", cfg.get("device_type", "switch"))
+     commands = generate_commands(cfg, device_type, brand)
+-    logger.info(f"Pushed {len(commands)} commands to {d.name} ({d.ip})")
++    logger.warning(
++        "DRY RUN: generated %d commands for %s (%s) — no SSH transport implemented, nothing was applied",
++        len(commands), d.name, d.ip,
++    )
+     return ConfigPushResponse(
+-        success=True,
++        success=False,
+         commands_generated=commands,
+-        output=f"Simulated push of {len(commands)} commands to {d.name}.",
++        output=f"DRY RUN — {len(commands)} commands generated for {d.name} ({d.ip}); nothing was sent to the device.",
++        error="No SSH transport for network devices yet: commands were generated, not applied.",
+     )
+ 
+ 
+diff --git a/backend/app/interface/api/realtime.py b/backend/app/interface/api/realtime.py
+index 1232f88..7a896d2 100644
+--- a/backend/app/interface/api/realtime.py
++++ b/backend/app/interface/api/realtime.py
+@@ -1,5 +1,6 @@
+ import asyncio
+ import logging
++import secrets
+ import time
+ from datetime import datetime, timezone
+ 
+@@ -13,7 +14,7 @@ from ...auth import get_api_key_or_jwt
+ from ...config import settings
+ from ...core.broadcaster import broadcaster
+ from ...core.jwt_utils import verify_token
+-from ...db import get_db, query_with_tenant
++from ...db import get_db, get_tenant_id, query_with_tenant
+ from ...models import Alert, Asset, Device
+ 
+ logger = logging.getLogger(__name__)
+@@ -31,26 +32,43 @@ async def get_real_alerts(request: Request, limit: int = 50, db: Session = Depen
+     Fetch latest security alerts from DATABASE, enriched with asset data.
+     """
+     db_alerts = query_with_tenant(Alert, request, db).order_by(desc(Alert.timestamp)).limit(min(limit, 500)).all()
+-    
++
++    # FIX 1: Asset/Device were looked up WITHOUT a tenant filter, so an alert in
++    # tenant A could be enriched with employee names / departments / MAC addresses
++    # belonging to tenant B (the alerts themselves were correctly tenant-scoped).
++    # FIX 2: that was also 2 queries per alert inside a loop (N+1) on an endpoint the
++    # dashboard polls every few seconds -> replaced by 2 batched IN(...) queries.
++    tenant_id = get_tenant_id(request)
++    src_ips = {item.src_ip for item in db_alerts if item.src_ip}
++
++    assets_by_ip: dict = {}
++    devices_by_ip: dict = {}
++    if src_ips:
++        try:
++            assets_by_ip = {
++                a.ip: a
++                for a in db.query(Asset).filter(Asset.tenant_id == tenant_id, Asset.ip.in_(src_ips)).all()
++            }
++            devices_by_ip = {
++                d.ip: d
++                for d in db.query(Device).filter(Device.tenant_id == tenant_id, Device.ip.in_(src_ips)).all()
++            }
++        except Exception as e:
++            logger.error("Alert enrichment failed: %s", e)
++
+     enriched_data = []
+     for item in db_alerts:
+         employee_name = "Unknown"
+         department = "Unknown"
+         mac_address = "Unknown"
+-        
+-        if item.src_ip:
+-             try:
+-                 # Query assets
+-                 asset = db.query(Asset).filter(Asset.ip == item.src_ip).first()
+-                 if asset:
+-                     employee_name, department = asset.employee_name, asset.department
+-                 # Query devices
+-                 device = db.query(Device).filter(Device.ip == item.src_ip).first()
+-                 if device:
+-                     mac_address = device.mac
+-             except Exception as e:
+-                 logger.error(f"Error querying device for IP {item.src_ip}: {e}")
+-                
++
++        asset = assets_by_ip.get(item.src_ip)
++        if asset:
++            employee_name, department = asset.employee_name, asset.department
++        device = devices_by_ip.get(item.src_ip)
++        if device:
++            mac_address = device.mac
++
+         enriched_data.append({
+             "ID": item.id,
+             "Timestamp": item.timestamp.isoformat(),
+@@ -74,7 +92,7 @@ async def websocket_endpoint(websocket: WebSocket, api_key: str | None = None, t
+ 
+     # Accept either the API key OR a valid JWT (passed as `token` query param).
+     if api_key:
+-        if api_key == settings.API_KEY.get_secret_value():
++        if secrets.compare_digest(api_key or "", settings.API_KEY.get_secret_value()):
+             authenticated = True
+ 
+     if not authenticated and token:
+diff --git a/backend/app/interface/api/terminal.py b/backend/app/interface/api/terminal.py
+index 34a3a15..125f735 100644
+--- a/backend/app/interface/api/terminal.py
++++ b/backend/app/interface/api/terminal.py
+@@ -2,7 +2,7 @@ import paramiko
+ import subprocess
+ import shlex
+ import logging
+-from fastapi import APIRouter, Depends, Request
++from fastapi import APIRouter, Depends, HTTPException, Request
+ from sqlalchemy.orm import Session
+ from ...auth import get_api_key_or_jwt, has_scopes_or_api_key
+ from ...config import settings
+@@ -11,30 +11,55 @@ from ...schemas import CommandRequest
+ 
+ logger = logging.getLogger(__name__)
+ 
++# ══════════════════════════════════════════════════════════════════════
++# FIX — the previous allowlist only ever checked parts[0], which made it
++# trivially escapable:
++#   • `docker` was allowed -> `docker exec <c> docker run --privileged -v /:/h …`
++#     (the Wazuh container is entered from the backend host, i.e. with the docker
++#      socket => root on the host);
++#   • `find` only had its FIRST path argument checked, so
++#     `find /var/log -type f -exec cat /etc/shadow +` ran `cat` anywhere
++#     (`+` and `-exec` were not in the blocked-character list);
++#   • `grep` had no path restriction at all -> `grep -r root /etc/shadow`;
++#   • `systemctl` allowed `edit` / `set-property` (writing a unit file = RCE);
++#   • `top` / `htop` are interactive and always burned the 15 s timeout;
++#   • the multi-word entries "docker ps" / "docker stats" could never match,
++#     because only the first word was compared.
++# Below: two-word commands are matched as such, dangerous flags are rejected, and
++# every absolute path argument of a read command must be inside a safe directory.
++# ══════════════════════════════════════════════════════════════════════
+ ALLOWED_COMMANDS = {
+     "wazuh": {
+-        "status", "agent_control", "ossec-control", "cat", "tail", "head",
+-        "grep", "find", "ls", "df", "free", "uptime", "whoami", "id",
+-        "ps", "netstat", "ss", "ip", "ifconfig", "top", "htop",
+-        "journalctl", "systemctl", "docker", "docker ps", "docker stats",
++        "status", "agent_control", "ossec-control",
++        "cat", "tail", "head", "ls", "df", "free", "uptime", "whoami", "id",
++        "ps", "netstat", "ss", "ip", "journalctl",
++        "systemctl status", "systemctl is-active", "systemctl list-units", "systemctl show",
+     },
+     "suricata": {
+-        "status", "cat", "tail", "head", "grep", "find", "ls", "df",
+-        "free", "uptime", "whoami", "id", "ps", "netstat", "ss",
+-        "ip", "ifconfig", "suricatasc", "systemctl",
++        "status", "cat", "tail", "head", "ls", "df", "free", "uptime", "whoami", "id",
++        "ps", "netstat", "ss", "ip", "suricatasc",
++        "systemctl status", "systemctl is-active", "systemctl list-units", "systemctl show",
+     },
+ }
+ 
++# `grep` and `find` were deliberately REMOVED from the allowlists above: even with a
++# directory restriction they are execution primitives (`find -exec`) and arbitrary
++# file readers. `ls` + `cat` + `tail` + `head` + `journalctl` cover every legitimate
++# diagnostic need. They stay listed here as defence in depth if re-added later.
++FILE_READING_COMMANDS = {"cat", "tail", "head", "ls", "grep", "find"}
++
++# Flags that turn a "read-only" binary into an execution/arbitrary-read primitive.
++FORBIDDEN_FLAGS = {
++    "-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprint", "-fprintf", "-fls",
++    "--directory", "--file", "--output", "-o", "--eval", "-e",
++}
++
+ # Restrict file-reading commands to known safe directories only
+ SAFE_READ_DIRS = {
+     "wazuh": ["/var/log/", "/var/ossec/logs/", "/var/ossec/etc/"],
+     "suricata": ["/var/log/", "/etc/suricata/"],
+ }
+ 
+-SAFE_FIND_DIRS = {
+-    "wazuh": ["/var/log/", "/var/ossec/", "/var/run/"],
+-    "suricata": ["/var/log/", "/etc/suricata/"],
+-}
+ 
+ def sanitize_command(cmd: str, target: str) -> str:
+     cmd = cmd.strip()
+@@ -56,28 +81,41 @@ def sanitize_command(cmd: str, target: str) -> str:
+     if not parts:
+         raise ValueError("Empty command")
+ 
+-    base_cmd = parts[0].lower()
++    lowered = [part.lower() for part in parts]
+     allowed = ALLOWED_COMMANDS.get(target, set())
+ 
+-    if base_cmd not in allowed:
+-        raise ValueError(f"Command '{base_cmd}' is not allowed. Allowed: {', '.join(sorted(allowed))}")
+-
+-    # Restrict file-reading commands (cat, tail, head) to known safe directories
+-    if base_cmd in ("cat", "tail", "head") and len(parts) >= 2:
+-        target_path = parts[-1]
++    # Match the longest allowed prefix ("systemctl status" beats "systemctl").
++    base_cmd = None
++    for words in (2, 1):
++        candidate = " ".join(lowered[:words])
++        if candidate in allowed:
++            base_cmd = candidate
++            break
++    if base_cmd is None:
++        raise ValueError(f"Command '{lowered[0]}' is not allowed. Allowed: {', '.join(sorted(allowed))}")
++
++    argv = parts[len(base_cmd.split()):]
++
++    for arg in argv:
++        if arg in FORBIDDEN_FLAGS or arg.split("=", 1)[0] in FORBIDDEN_FLAGS:
++            raise ValueError(f"Flag '{arg}' is not allowed")
++        if arg.startswith("-exec") or arg.startswith("-delete"):
++            raise ValueError(f"Flag '{arg}' is not allowed")
++
++    # Every absolute path handed to a reading command must be inside a safe dir.
++    if lowered[0] in FILE_READING_COMMANDS:
+         safe_dirs = SAFE_READ_DIRS.get(target, [])
+-        if safe_dirs and not any(target_path.startswith(d) for d in safe_dirs):
+-            raise ValueError(f"Access to '{target_path}' is restricted to: {', '.join(safe_dirs)}")
+-
+-    # Restrict find to safe directories only
+-    if base_cmd == "find" and len(parts) >= 2:
+-        search_path = parts[1]
+-        safe_find = SAFE_FIND_DIRS.get(target, [])
+-        if safe_find and not any(search_path.startswith(d) for d in safe_find):
+-            raise ValueError(f"find is restricted to: {', '.join(safe_find)}")
++        for arg in argv:
++            if ".." in arg:
++                raise ValueError("Path traversal ('..') is not allowed")
++            if not arg.startswith("/"):
++                continue
++            if not any(arg == d.rstrip("/") or arg.startswith(d) for d in safe_dirs):
++                raise ValueError(f"Access to '{arg}' is restricted to: {', '.join(safe_dirs)}")
+ 
+     return cmd
+ 
++
+ router = APIRouter(prefix="/api/terminal", tags=["Terminal"], dependencies=[Depends(get_api_key_or_jwt)])
+ 
+ def _get_ssh_config(db: Session, target: str, request: Request = None) -> dict:
+@@ -164,7 +202,9 @@ async def execute_ssh_command(request: Request, req: CommandRequest, db: Session
+                 return {"output": "Connection to Suricata failed", "status": "error"}
+ 
+     except ValueError as e:
+-        return {"output": f"Command rejected: {e}", "status": "error"}
++        # FIX: a rejected command used to come back as HTTP 200 with
++        # {"status": "error"}, which the UI cannot distinguish from success.
++        raise HTTPException(status_code=400, detail=f"Command rejected: {e}")
+     except Exception as e:
+         logger.exception("Terminal execution failed")
+         return {"output": "Internal error during command execution", "status": "error"}
+diff --git a/backend/app/interface/middleware/tenant.py b/backend/app/interface/middleware/tenant.py
+index 47cbc89..5b17ed1 100644
+--- a/backend/app/interface/middleware/tenant.py
++++ b/backend/app/interface/middleware/tenant.py
+@@ -1,4 +1,6 @@
+ import logging
++import secrets
++
+ from fastapi import Request, HTTPException
+ from starlette.middleware.base import BaseHTTPMiddleware
+ from starlette.responses import JSONResponse
+@@ -48,7 +50,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
+         # Only fall back to X-Tenant-ID header if no JWT AND valid API key
+         if not tenant_id:
+             api_key = request.headers.get("x-api-key")
+-            if api_key and api_key == settings.API_KEY.get_secret_value():
++            if api_key and secrets.compare_digest(api_key, settings.API_KEY.get_secret_value()):
+                 tenant_id = request.headers.get("X-Tenant-ID")
+ 
+         # Default tenant for backward compatibility
+diff --git a/backend/app/services/__init__.py b/backend/app/services/__init__.py
+index fef0b73..c827a66 100644
+--- a/backend/app/services/__init__.py
++++ b/backend/app/services/__init__.py
+@@ -1 +1 @@
+-from ..core.broadcaster import broadcaster
++from ..core.broadcaster import broadcaster  # noqa: F401
+diff --git a/backend/app/services/wazuh_service.py b/backend/app/services/wazuh_service.py
+index 486a4ed..4d1f67a 100644
+--- a/backend/app/services/wazuh_service.py
++++ b/backend/app/services/wazuh_service.py
+@@ -1 +1 @@
+-from ..application.wazuh.service import wazuh_service
++from ..application.wazuh.service import wazuh_service  # noqa: F401
+diff --git a/backend/pytest.ini b/backend/pytest.ini
+new file mode 100644
+index 0000000..a2e53d7
+--- /dev/null
++++ b/backend/pytest.ini
+@@ -0,0 +1,11 @@
++[pytest]
++# The backend shipped no pytest configuration at all (no pytest.ini / pyproject.toml /
++# setup.cfg / tox.ini). rootdir resolution then depends on where pytest is invoked
++# from, which is why CI's `pytest --tb=short -q` and a local run can behave
++# differently. Pinning it here makes `pytest` work from any cwd.
++testpaths = tests
++python_files = test_*.py
++addopts = -ra --strict-markers --tb=short
++filterwarnings =
++    ignore::DeprecationWarning:jose.*
++    ignore::DeprecationWarning:passlib.*
+diff --git a/backend/ruff.toml b/backend/ruff.toml
+index f0b65c8..620df60 100644
+--- a/backend/ruff.toml
++++ b/backend/ruff.toml
+@@ -3,7 +3,7 @@ target-version = "py313"
+ 
+ [lint]
+ select = ["E", "F", "W", "I", "N", "UP"]
+-ignore = ["E501", "F841", "W503"]
++ignore = ["E501", "F841"]
+ 
+ [format]
+ quote-style = "double"
+diff --git a/backend/tests/conftest.py b/backend/tests/conftest.py
+new file mode 100644
+index 0000000..317e7cb
+--- /dev/null
++++ b/backend/tests/conftest.py
+@@ -0,0 +1,49 @@
++"""Pytest configuration — makes the suite importable and hermetic.
++
++Why this file exists
++--------------------
++`app/core/config.py` declares 8 fields with NO default:
++
++    JWT_SECRET_KEY, API_KEY, WAZUH_PASS, WAZUH_INDEXER_PASS,
++    SURICATA_PASS, WAZUH_SSH_PASS, ADMIN_API_KEY, ADMIN_JWT_SECRET
++
++`Settings` is instantiated at *import time* (`settings = Settings()`), so every one
++of the 14 existing test modules fails at COLLECTION with a pydantic ValidationError
++before a single test runs (verified: `pytest --collect-only tests/test_timescale.py`
++on a clean checkout errors out). CI supplied only 4 of the 8 and there was no
++conftest, so the `test-backend` job could never have passed.
++
++Contract: values already present in the environment WIN (CI supplies a real
++PostgreSQL/TimescaleDB DSN and a Redis URL). Everything else gets a throwaway
++default so `pytest` works on a laptop with no `.env` file.
++"""
++import os
++
++# Must happen before any `app.*` import — pytest loads conftest.py first.
++_TEST_DEFAULTS = {
++    # ── the 8 required secrets ────────────────────────────────────────────
++    "JWT_SECRET_KEY": "test-only-jwt-secret-not-for-production-0000000000",
++    "API_KEY": "test-only-api-key",
++    "ADMIN_API_KEY": "test-only-admin-api-key",
++    "ADMIN_JWT_SECRET": "test-only-admin-jwt-secret-0000000000000000000",
++    "WAZUH_PASS": "test-only",
++    "WAZUH_INDEXER_PASS": "test-only",
++    "SURICATA_PASS": "test-only",
++    "WAZUH_SSH_PASS": "test-only",
++    # ── infrastructure the suite talks to (CI overrides both) ─────────────
++    "DATABASE_URL": "postgresql+pg8000://postgres:test-password-ci-only@localhost:5432/postgres_test",
++    "REDIS_URL": "redis://localhost:6379/0",
++    # ── never let a test run believe it is in production ──────────────────
++    "ENVIRONMENT": "test",
++    # ── keep optional integrations OFF so tests do not hit the network ────
++    "ENABLE_WAZUH_SOURCE": "False",
++    "ENABLE_SURICATA_SOURCE": "False",
++    "ENABLE_HOST_AGENT_SOURCE": "False",
++    "THREAT_INTEL_ENABLED": "false",
++    "REGISTRATION_REQUIRES_APPROVAL": "False",
++    # No SUPER_ADMIN_PASSWORD: bootstrap.run_startup() must not seed an account
++    # during tests (it logs a warning instead).
++}
++
++for _key, _value in _TEST_DEFAULTS.items():
++    os.environ.setdefault(_key, _value)
+diff --git a/backend/tests/test_database_admin_ddl.py b/backend/tests/test_database_admin_ddl.py
+new file mode 100644
+index 0000000..27b880d
+--- /dev/null
++++ b/backend/tests/test_database_admin_ddl.py
+@@ -0,0 +1,98 @@
++"""Regression tests for the admin database-browser DDL endpoints.
++
++Two things were broken before:
++  * `ALLOWED_TYPES` was declared but NEVER used — `col.type` and `col.default`
++    were interpolated straight into `CREATE TABLE`, i.e. SQL injection from the
++    admin console.
++  * `PROTECTED_TABLES` was a hand-maintained list of 25 names while the ORM
++    declares 46 tables, so 22 real tables were droppable over HTTP.
++
++Run: cd backend && pytest tests/test_database_admin_ddl.py -q
++"""
++import pytest
++from fastapi import HTTPException
++
++from app.core.db import Base
++from app.interface.api.database import (
++    ALLOWED_TYPES,
++    _protected_tables,
++    _validate_column_type,
++    _validate_default,
++)
++
++
++# ── column types ───────────────────────────────────────────────────────
++@pytest.mark.parametrize("raw,expected", [
++    ("text", "TEXT"),
++    ("TEXT", "TEXT"),
++    ("  varchar(255) ", "VARCHAR(255)"),
++    ("character varying(64)", "CHARACTER VARYING(64)"),
++    ("numeric(10,2)", "NUMERIC(10, 2)"),
++    ("timestamp with time zone", "TIMESTAMP WITH TIME ZONE"),
++    ("double precision", "DOUBLE PRECISION"),
++    ("jsonb", "JSONB"),
++    ("uuid", "UUID"),
++    ("boolean", "BOOLEAN"),
++])
++def test_accepts_and_normalises_allowed_types(raw, expected):
++    assert _validate_column_type(raw) == expected
++
++
++@pytest.mark.parametrize("raw", [
++    "integer); DROP TABLE tenants; --",
++    "text DEFAULT (SELECT password_hash FROM tenant_users LIMIT 1)",
++    "varchar(255); DELETE FROM alerts",
++    "integer PRIMARY KEY",          # constraints come from the dedicated fields
++    "serial",                       # not in ALLOWED_TYPES
++    "text(10)",                     # text takes no size modifier
++    "pg_sleep(10)",
++    "",
++])
++def test_rejects_injected_or_unlisted_types(raw):
++    with pytest.raises(HTTPException) as exc:
++        _validate_column_type(raw)
++    assert exc.value.status_code == 400
++
++
++# ── defaults ───────────────────────────────────────────────────────────
++@pytest.mark.parametrize("raw", ["now()", "CURRENT_TIMESTAMP", "gen_random_uuid()", "0", "-1.5", "'pending'", "true", "false"])
++def test_accepts_safe_defaults(raw):
++    assert _validate_default(raw)
++
++
++@pytest.mark.parametrize("raw", [
++    "(SELECT 1)",
++    "now()); DROP TABLE tenants; --",
++    "'a'; DROP TABLE tenants; --",
++    "gen_random_uuid()::text",
++    "current_user",
++])
++def test_rejects_expression_defaults(raw):
++    with pytest.raises(HTTPException) as exc:
++        _validate_default(raw)
++    assert exc.value.status_code == 400
++
++
++# ── protected tables can no longer drift ───────────────────────────────
++def test_every_orm_table_is_protected_from_drop():
++    declared = set(Base.metadata.tables.keys())
++    assert declared, "ORM metadata is empty — models were not imported"
++    protected = _protected_tables()
++    missing = sorted(declared - protected)
++    assert not missing, f"these application tables are droppable over HTTP: {missing}"
++
++
++@pytest.mark.parametrize("table", [
++    "tenants", "tenant_users", "alerts", "cases", "investigations",
++    "response_runs", "registration_requests", "notification_channels",
++    "honeypot_events", "agents",
++])
++def test_sensitive_tables_are_protected(table):
++    assert table in _protected_tables()
++
++
++def test_allowed_types_is_actually_enforced():
++    # The set existed before but nothing consulted it; make sure that cannot regress.
++    assert "text" in ALLOWED_TYPES
++    with pytest.raises(HTTPException):
++        _validate_column_type("definitely_not_a_pg_type")
+diff --git a/backend/tests/test_terminal_sanitizer.py b/backend/tests/test_terminal_sanitizer.py
+new file mode 100644
+index 0000000..340d37d
+--- /dev/null
++++ b/backend/tests/test_terminal_sanitizer.py
+@@ -0,0 +1,123 @@
++"""Regression tests for the restricted terminal sanitizer.
++
++These lock in the fixes for the four bypasses that existed before:
++  1. `docker` in the allowlist  -> container escape / root on the host
++  2. `find /var/log -exec …`    -> only parts[1] was path-checked
++  3. `grep -r root /etc/shadow` -> no path restriction at all
++  4. `systemctl edit …`         -> writing a unit file = code execution
++
++Run: cd backend && pytest tests/test_terminal_sanitizer.py -q
++"""
++import pytest
++
++from app.interface.api.terminal import ALLOWED_COMMANDS, sanitize_command
++
++
++# ── legitimate diagnostics must keep working ────────────────────────────
++@pytest.mark.parametrize("cmd,target", [
++    ("cat /var/ossec/logs/ossec.log", "wazuh"),
++    ("tail -n 100 /var/ossec/logs/ossec.log", "wazuh"),
++    ("head -20 /var/log/syslog", "wazuh"),
++    ("ls /var/log", "wazuh"),
++    ("ls /var/log/", "wazuh"),
++    ("journalctl -u wazuh-manager --no-pager", "wazuh"),
++    ("systemctl status wazuh-manager", "wazuh"),
++    ("systemctl is-active wazuh-manager", "wazuh"),
++    ("ps aux", "wazuh"),
++    ("ss -tulpn", "wazuh"),
++    ("df -h", "suricata"),
++    ("uptime", "suricata"),
++    ("suricatasc -c ps", "suricata"),
++    ("cat /etc/suricata/suricata.yaml", "suricata"),
++])
++def test_allows_legitimate_diagnostics(cmd, target):
++    assert sanitize_command(cmd, target) == cmd
++
++
++# ── the four historical bypasses ────────────────────────────────────────
++@pytest.mark.parametrize("cmd,target", [
++    # 1. docker / container escape
++    ("docker run --privileged -v /:/host alpine chroot /host", "wazuh"),
++    ("docker ps", "wazuh"),
++    # 2. find -exec / -delete (and the `+` terminator that was not blocked)
++    ("find /var/log -type f -exec cat /etc/shadow +", "wazuh"),
++    ("find /var/log -delete", "wazuh"),
++    ("find /var/log -execdir id ;", "wazuh"),
++    # 3. unrestricted readers
++    ("grep -r root /etc/shadow", "wazuh"),
++    ("grep password /etc/suricata/suricata.yaml", "suricata"),
++    # 4. systemctl as a write primitive
++    ("systemctl edit wazuh-manager", "wazuh"),
++    ("systemctl set-property wazuh CPUQuota=1%", "wazuh"),
++])
++def test_blocks_the_known_bypasses(cmd, target):
++    with pytest.raises(ValueError):
++        sanitize_command(cmd, target)
++
++
++# ── path confinement for every reading command ──────────────────────────
++@pytest.mark.parametrize("cmd", [
++    "cat /etc/shadow",
++    "cat /etc/passwd",
++    "tail -f /root/.ssh/id_rsa",
++    "head /var/ossec/etc/../../etc/shadow",
++    "ls /etc",
++])
++def test_blocks_paths_outside_the_safe_directories(cmd):
++    with pytest.raises(ValueError):
++        sanitize_command(cmd, "wazuh")
++
++
++def test_blocks_path_traversal_even_inside_a_safe_prefix():
++    with pytest.raises(ValueError):
++        sanitize_command("cat /var/log/../../etc/shadow", "wazuh")
++
++
++# ── flag-level confinement ─────────────────────────────────────────────
++@pytest.mark.parametrize("cmd", [
++    "journalctl --file=/etc/shadow",
++    "journalctl --directory=/etc",
++    "cat -o /var/log/syslog",
++])
++def test_blocks_dangerous_flags(cmd):
++    with pytest.raises(ValueError):
++        sanitize_command(cmd, "wazuh")
++
++
++# ── shell metacharacters and size limit (pre-existing behaviour kept) ───
++@pytest.mark.parametrize("cmd", [
++    "cat /var/log/syslog | grep root",
++    "cat /var/log/syslog; reboot",
++    "cat $(whoami)",
++    "cat `id`",
++    "cat /var/log/syslog && curl http://evil",
++])
++def test_blocks_shell_metacharacters(cmd):
++    with pytest.raises(ValueError):
++        sanitize_command(cmd, "wazuh")
++
++
++def test_rejects_overlong_commands():
++    with pytest.raises(ValueError):
++        sanitize_command("cat " + "/var/log/" + "a" * 600, "wazuh")
++
++
++def test_rejects_empty_and_unknown_commands():
++    with pytest.raises(ValueError):
++        sanitize_command("   ", "wazuh")
++    with pytest.raises(ValueError):
++        sanitize_command("reboot", "wazuh")
++    with pytest.raises(ValueError):
++        sanitize_command("cat /etc/passwd", "not-a-target")
++
++
++def test_no_interactive_or_docker_binaries_in_any_allowlist():
++    for target, allowed in ALLOWED_COMMANDS.items():
++        for binary in ("docker", "grep", "find", "top", "htop", "sh", "bash", "python", "curl", "wget"):
++            assert binary not in allowed, f"{binary} must not be reachable via the {target} terminal"
++        # every two-word entry must actually be reachable by the prefix matcher
++        for entry in allowed:
++            if " " in entry:
++                assert entry.split()[0] not in allowed, (
++                    f"'{entry}' is shadowed by the bare '{entry.split()[0]}' allowlist entry"
++                )
+diff --git a/docker-compose.yml b/docker-compose.yml
+index cbb1b26..e96acff 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -1,10 +1,67 @@
++# Development infrastructure — the services the backend needs locally.
++#
++# FIX: this file used to define ONLY `redis` while declaring an orphan top-level
++# `pgdata:` volume, so `docker compose up` gave you a broker with no database and
++# no way to run the API. It is now the real dev counterpart of
++# docker-compose.prod.yml (same images, same volume name, ports bound to loopback).
++#
++# Usage:
++#   docker compose up -d            # postgres + redis (+ ollama profile)
++#   docker compose --profile ai up -d
++#   make dev-backend                # uvicorn against these services
++#
++# Credentials are dev-only defaults; override them in a local .env if you want.
++
++name: sentinel-dev
++
+ services:
++  postgres:
++    image: timescale/timescaledb:2.29.1-pg16
++    container_name: sentinel-postgres
++    environment:
++      POSTGRES_USER: ${POSTGRES_USER:-postgres}
++      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
++      POSTGRES_DB: ${POSTGRES_DB:-postgres}
++      TIMESCALEDB_TELEMETRY: "off"
++    ports:
++      - "127.0.0.1:5432:5432"
++    volumes:
++      - pgdata:/var/lib/postgresql/data
++    healthcheck:
++      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
++      interval: 10s
++      timeout: 5s
++      retries: 5
++    restart: unless-stopped
++
+   redis:
+     image: redis:7
+     container_name: sentinel-redis
++    # No password in dev so `redis-cli` and the test suite work out of the box.
++    # Production sets one (see docker-compose.prod.yml).
++    ports:
++      - "127.0.0.1:6379:6379"
++    volumes:
++      - redisdata:/data
++    healthcheck:
++      test: ["CMD", "redis-cli", "ping"]
++      interval: 10s
++      timeout: 5s
++      retries: 5
++    restart: unless-stopped
++
++  # Optional: `docker compose --profile ai up -d`
++  ollama:
++    image: ollama/ollama:latest
++    container_name: sentinel-ollama
++    profiles: ["ai"]
+     ports:
+-      - "6379:6379"
++      - "127.0.0.1:11434:11434"
++    volumes:
++      - ollama_data:/root/.ollama
+     restart: unless-stopped
+ 
+ volumes:
+   pgdata:
++  redisdata:
++  ollama_data:
+diff --git a/frontend/src/lib/api.js b/frontend/src/lib/api.js
+new file mode 100644
+index 0000000..4cc8a80
+--- /dev/null
++++ b/frontend/src/lib/api.js
+@@ -0,0 +1,106 @@
++// src/lib/api.js
++// Shared authenticated fetch factory for the SOC frontend.
++//
++// createFetchWithAuth(getToken, onUnauthorized) -> fetchWithAuth(path, options)
++//
++// Contract (deduced from every call-site in the app):
++//   - returns the raw Response so callers can keep doing `res.ok` / `res.json()`
++//   - attaches `Authorization: Bearer <token>` unless the caller already set it
++//   - attaches `X-Tenant-ID` from localStorage unless the caller already set it
++//     (the backend prefers the tenant claim inside the JWT; the header is only
++//      honoured for the X-API-Key lane)
++//   - JSON-encodes plain object bodies and sets Content-Type automatically
++//   - on 401 -> onUnauthorized() so the app drops back to the login screen
++//   - on any other failure a toast is raised, unless `silent: true` is passed
++//     (background pollers use silent so they never spam the analyst)
++
++import { toast } from "react-toastify";
++
++const TENANT_KEY = "auth_tenant_id";
++
++function isPlainObject(value) {
++  return (
++    typeof value === "object" &&
++    value !== null &&
++    !(value instanceof FormData) &&
++    !(value instanceof URLSearchParams) &&
++    !(value instanceof Blob) &&
++    !(value instanceof ArrayBuffer)
++  );
++}
++
++/**
++ * @param {() => string} getToken        returns the current JWT (may be "")
++ * @param {() => void}   onUnauthorized   called on 401 — clears session state
++ * @returns {(path: string, options?: object) => Promise<Response>}
++ */
++export function createFetchWithAuth(getToken, onUnauthorized) {
++  return async function fetchWithAuth(path, options = {}) {
++    const { silent = false, headers = {}, body, ...rest } = options;
++
++    const finalHeaders = { ...headers };
++
++    // Case-insensitive "already provided?" checks so callers can pass
++    // either `Authorization` or `authorization`.
++    const has = (name) =>
++      Object.keys(finalHeaders).some((k) => k.toLowerCase() === name.toLowerCase());
++
++    const token = typeof getToken === "function" ? getToken() : getToken;
++    if (token && !has("Authorization")) {
++      finalHeaders.Authorization = `Bearer ${token}`;
++    }
++
++    if (!has("X-Tenant-ID")) {
++      const tenantId = localStorage.getItem(TENANT_KEY);
++      if (tenantId) finalHeaders["X-Tenant-ID"] = tenantId;
++    }
++
++    let finalBody = body;
++    if (isPlainObject(body)) {
++      finalBody = JSON.stringify(body);
++    }
++    if (
++      finalBody !== undefined &&
++      finalBody !== null &&
++      !(finalBody instanceof FormData) &&
++      !has("Content-Type")
++    ) {
++      finalHeaders["Content-Type"] = "application/json";
++    }
++
++    let res;
++    try {
++      res = await fetch(path, { ...rest, headers: finalHeaders, body: finalBody });
++    } catch (err) {
++      // Network failure / backend down. Callers wrap in try/catch and inspect
++      // `res.ok`, so surface a toast (unless silent) and rethrow.
++      if (!silent) {
++        toast.error("Backend unreachable — check that the API is running.");
++      }
++      throw err;
++    }
++
++    if (res.status === 401) {
++      if (typeof onUnauthorized === "function") onUnauthorized();
++      return res;
++    }
++
++    if (!res.ok && !silent) {
++      let detail = `${res.status} ${res.statusText || ""}`.trim();
++      try {
++        const data = await res.clone().json();
++        if (data && typeof data.detail === "string") detail = data.detail;
++        else if (data && typeof data.detail === "object") {
++          detail = data.detail.msg || JSON.stringify(data.detail);
++        }
++      } catch {
++        /* non-JSON error body — keep the status line */
++      }
++      toast.error(detail || "Request failed");
++    }
++
++    return res;
++  };
++}
++
++export default createFetchWithAuth;
+diff --git a/frontend/src/lib/formatters.js b/frontend/src/lib/formatters.js
+new file mode 100644
+index 0000000..639cd79
+--- /dev/null
++++ b/frontend/src/lib/formatters.js
+@@ -0,0 +1,350 @@
++// src/lib/formatters.js
++// Presentation helpers shared by the SOC pages.
++//
++// Written with React.createElement (no JSX) so the module stays a plain `.js`
++// file — Vite/esbuild only transform JSX inside `.jsx` by default.
++
++import { createElement as h, Fragment } from "react";
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Severity classification — ONE convention for the whole app.
++//
++// Wazuh-style rule levels 0..15. These are the buckets already used by
++// TerminalAlertsPage's severity filter (12 / 8 / 4 / 0), promoted here so the
++// dashboard chart, the tables and the topology stop disagreeing with each other.
++// Today "critical" means >=12 in AlertRow.jsx, >=10 in RemediationPage.jsx and
++// AlertHistoryModal.jsx, >=8 in Layout.jsx and DashboardPage.jsx, >=7 in
++// TopologyView.jsx — five answers to the same question.
++// ─────────────────────────────────────────────────────────────────────────────
++export const SEVERITY_CRITICAL = 12;
++export const SEVERITY_HIGH = 8;
++export const SEVERITY_MEDIUM = 4;
++
++export function severityOf(alert) {
++  if (!alert) return 0;
++  const raw =
++    alert.Severity ??
++    alert.severity ??
++    alert.level ??
++    alert.rule_level ??
++    (alert.rule && (alert.rule.level ?? alert.rule.severity)) ??
++    0;
++  const n = parseInt(raw, 10);
++  return Number.isFinite(n) ? n : 0;
++}
++
++export function severityBucket(alert) {
++  const sev = severityOf(alert);
++  if (sev >= SEVERITY_CRITICAL) return "Critical";
++  if (sev >= SEVERITY_HIGH) return "High";
++  if (sev >= SEVERITY_MEDIUM) return "Medium";
++  return "Low";
++}
++
++function timestampOf(alert) {
++  const raw =
++    alert.Timestamp ??
++    alert.timestamp ??
++    alert["@timestamp"] ??
++    alert.datetime ??
++    alert.time ??
++    null;
++  if (!raw) return null;
++  const d = raw instanceof Date ? raw : new Date(raw);
++  return Number.isNaN(d.getTime()) ? null : d;
++}
++
++/**
++ * Bucket alerts per hour of day for the dashboard's stacked BarChart.
++ * Returns [{ time: "14:00", Critical, High, Medium, Low, total }] for the last
++ * `hours` hours (oldest first), including empty hours so the X axis is stable.
++ *
++ * @param {Array<object>} alerts
++ * @param {number} hours  window size, default 24
++ */
++export function getHourlyAlertsData(alerts, hours = 24) {
++  const buckets = new Map();
++  const now = new Date();
++
++  for (let i = hours - 1; i >= 0; i -= 1) {
++    const d = new Date(now.getTime() - i * 3600 * 1000);
++    d.setMinutes(0, 0, 0);
++    buckets.set(d.getTime(), {
++      time: `${String(d.getHours()).padStart(2, "0")}:00`,
++      Critical: 0,
++      High: 0,
++      Medium: 0,
++      Low: 0,
++      total: 0,
++    });
++  }
++
++  (Array.isArray(alerts) ? alerts : []).forEach((alert) => {
++    const d = timestampOf(alert);
++    if (!d) return;
++    const slot = new Date(d);
++    slot.setMinutes(0, 0, 0);
++    const row = buckets.get(slot.getTime());
++    if (!row) return; // outside the displayed window
++    row[severityBucket(alert)] += 1;
++    row.total += 1;
++  });
++
++  return [...buckets.values()];
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// formatReport — render an LLM/SOC report (markdown-ish plain text) as React
++// elements. Deliberately does NOT use dangerouslySetInnerHTML: report text comes
++// from a model and must never be able to inject markup.
++// ─────────────────────────────────────────────────────────────────────────────
++const INLINE_RE = /(\*\*[^*]+\*\*|`[^`]+`)/g;
++
++function renderInline(text, keyPrefix) {
++  const parts = String(text).split(INLINE_RE).filter((p) => p !== "");
++  return parts.map((part, i) => {
++    const key = `${keyPrefix}-i${i}`;
++    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
++      return h("strong", { key, style: { color: "var(--text-1, #e2e8f0)" } }, part.slice(2, -2));
++    }
++    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
++      return h(
++        "code",
++        {
++          key,
++          style: {
++            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
++            fontSize: "0.92em",
++            padding: "1px 5px",
++            borderRadius: 4,
++            background: "rgba(255,255,255,0.07)",
++            color: "#7dd3fc",
++          },
++        },
++        part.slice(1, -1),
++      );
++    }
++    return h(Fragment, { key }, part);
++  });
++}
++
++export function formatReport(content) {
++  if (content === null || content === undefined) return null;
++  if (typeof content !== "string") return String(content);
++
++  const text = content.replace(/\r\n/g, "\n").trim();
++  if (!text) return null;
++
++  const lines = text.split("\n");
++  const blocks = [];
++  let list = null; // { ordered: bool, items: string[] }
++  let key = 0;
++
++  const flushList = () => {
++    if (!list) return;
++    const tag = list.ordered ? "ol" : "ul";
++    blocks.push(
++      h(
++        tag,
++        { key: `b${key++}`, style: { margin: "6px 0 12px", paddingLeft: 22, lineHeight: 1.65 } },
++        list.items.map((item, i) => h("li", { key: `li${i}` }, renderInline(item, `li${i}`))),
++      ),
++    );
++    list = null;
++  };
++
++  lines.forEach((rawLine, idx) => {
++    const trimmed = rawLine.trim();
++
++    if (!trimmed) {
++      flushList();
++      return;
++    }
++
++    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
++      flushList();
++      blocks.push(
++        h("hr", {
++          key: `b${key++}`,
++          style: { border: "none", borderTop: "1px solid rgba(255,255,255,0.1)", margin: "14px 0" },
++        }),
++      );
++      return;
++    }
++
++    const heading = /^(#{1,4})\s+(.*)$/.exec(trimmed);
++    if (heading) {
++      flushList();
++      const level = heading[1].length;
++      const sizes = { 1: "18px", 2: "16px", 3: "14px", 4: "13px" };
++      blocks.push(
++        h(
++          `h${Math.min(level + 1, 6)}`,
++          {
++            key: `b${key++}`,
++            style: {
++              margin: level === 1 ? "4px 0 10px" : "14px 0 6px",
++              fontSize: sizes[level],
++              letterSpacing: "0.02em",
++              color: "var(--text-1, #e2e8f0)",
++            },
++          },
++          renderInline(heading[2], `h${idx}`),
++        ),
++      );
++      return;
++    }
++
++    const bullet = /^[-*•]\s+(.*)$/.exec(trimmed);
++    if (bullet) {
++      if (!list || list.ordered) {
++        flushList();
++        list = { ordered: false, items: [] };
++      }
++      list.items.push(bullet[1]);
++      return;
++    }
++
++    const ordered = /^\d+[.)]\s+(.*)$/.exec(trimmed);
++    if (ordered) {
++      if (!list || !list.ordered) {
++        flushList();
++        list = { ordered: true, items: [] };
++      }
++      list.items.push(ordered[1]);
++      return;
++    }
++
++    flushList();
++    blocks.push(
++      h(
++        "p",
++        { key: `b${key++}`, style: { margin: "0 0 10px", lineHeight: 1.65 } },
++        renderInline(trimmed, `p${idx}`),
++      ),
++    );
++  });
++
++  flushList();
++  return h("div", { className: "report-body" }, blocks);
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// formatSuricataDetails — one-line human summary of a raw EVE event payload.
++// `payload` is the JSON string stored on the alert; `eventType` is
++// alert | http | dns | flow | netflow | tls | ssh | stats | ...
++// Must never throw: a malformed payload falls back to a truncated raw string.
++// ─────────────────────────────────────────────────────────────────────────────
++function parsePayload(payload) {
++  if (!payload) return null;
++  if (typeof payload === "object") return payload;
++  try {
++    return JSON.parse(payload);
++  } catch {
++    return null;
++  }
++}
++
++function bytes(n) {
++  const v = Number(n);
++  if (!Number.isFinite(v) || v <= 0) return null;
++  if (v < 1024) return `${v} B`;
++  if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
++  return `${(v / (1024 * 1024)).toFixed(1)} MB`;
++}
++
++export function formatSuricataDetails(payload, eventType) {
++  const type = String(eventType || "").toLowerCase();
++  const data = parsePayload(payload);
++
++  if (!data) {
++    const raw = typeof payload === "string" ? payload : "";
++    return raw ? `${raw.slice(0, 160)}${raw.length > 160 ? "…" : ""}` : "—";
++  }
++
++  try {
++    switch (type) {
++      case "alert": {
++        const a = data.alert || {};
++        const sid = a.signature_id ? ` [sid:${a.signature_id}]` : "";
++        const action = a.action ? ` (${a.action})` : "";
++        return `${a.signature || a.category || "Suricata alert"}${sid}${action}`;
++      }
++      case "http": {
++        const http = data.http || {};
++        const host = http.hostname || data.dest_ip || "";
++        const url = http.url || http.uri || "";
++        const method = http.http_method || "";
++        const status = http.status ? ` → ${http.status}` : "";
++        const ua = http.http_user_agent ? ` | ${http.http_user_agent}` : "";
++        return [method, `${host}${url}`].filter(Boolean).join(" ") + status + ua;
++      }
++      case "dns": {
++        const dns = data.dns || {};
++        const name = dns.rrname || (dns.query && dns.query.name) || "";
++        const answers = (dns.answers || [])
++          .map((x) => x.rdata)
++          .filter(Boolean)
++          .slice(0, 3)
++          .join(", ");
++        const qtype = dns.rrtype ? ` ${dns.rrtype}` : "";
++        return `${name}${qtype}${answers ? ` → ${answers}` : ""}`;
++      }
++      case "flow":
++      case "netflow": {
++        const f = data.flow || {};
++        const up = bytes(f.bytes_toserver);
++        const down = bytes(f.bytes_toclient);
++        const proto = data.app_proto || f.app_proto || data.proto || "";
++        const traffic = up || down ? ` ${up || "0 B"}↑ / ${down || "0 B"}↓` : "";
++        const state = f.state ? ` (${f.state})` : "";
++        return `${proto || "flow"}${traffic}${state}`;
++      }
++      case "tls": {
++        const t = data.tls || {};
++        return `${t.subject || t.sni || t.issuerdn || "TLS session"}${
++          t.version ? ` ${t.version}` : ""
++        }${t.fingerprint ? ` | ${t.fingerprint.slice(0, 24)}…` : ""}`;
++      }
++      case "ssh": {
++        const s = data.ssh || {};
++        const client = s.client && s.client.software_version ? `client ${s.client.software_version}` : "";
++        const server = s.server && s.server.software_version ? `server ${s.server.software_version}` : "";
++        return [client, server].filter(Boolean).join(" | ") || "SSH session";
++      }
++      case "stats": {
++        const st = data.stats || {};
++        const cap = st.capture || {};
++        return `capture ${cap.kernel_packets ?? 0} pkts | drop ${cap.kernel_drops ?? 0}`;
++      }
++      default: {
++        const interesting = [
++          data.app_proto,
++          data.proto,
++          data.event_type,
++          data.dest_port && `:${data.dest_port}`,
++          data.alert && data.alert.signature,
++          data.http && data.http.url,
++          data.dns && data.dns.rrname,
++        ].filter(Boolean);
++        if (interesting.length) return interesting.join(" ");
++        const flat = Object.entries(data)
++          .filter(([, v]) => typeof v === "string" || typeof v === "number")
++          .slice(0, 4)
++          .map(([k, v]) => `${k}=${v}`)
++          .join(" ");
++        return flat || type || "event";
++      }
++    }
++  } catch {
++    return type || "event";
++  }
++}
++
++export default {
++  formatReport,
++  formatSuricataDetails,
++  getHourlyAlertsData,
++  severityBucket,
++  severityOf,
++};
